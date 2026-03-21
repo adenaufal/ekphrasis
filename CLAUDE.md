@@ -4,7 +4,7 @@
 
 Single-file Tampermonkey userscript for NovelAI (`novelai.net/image`).
 **Entry point:** `ekphrasis.user.js`
-**Current version:** 3.3.0 | **Storage prefix:** `nai_ext_*`
+**Current version:** 3.3.1 | **Storage prefix:** `nai_ext_*`
 
 ## Versioning — WAJIB diupdate setiap ada perubahan
 

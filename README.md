@@ -2,7 +2,7 @@
 
 A Tampermonkey userscript that adds a prompt studio panel to [NovelAI](https://novelai.net/image). Manage templates, placeholders, composition presets, and batch queues — all without leaving the page.
 
-**Current version:** 3.2.3
+**Current version:** 3.3.1
 
 ---
 

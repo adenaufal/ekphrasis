@@ -6,6 +6,17 @@
 
 ---
 
+## [3.3.1] — March 2026
+
+### Fixed
+- **Randomizer + Apply+** — `applyPrompt` sekarang memanggil `Randomizer.pickRandom()` sebelum set ke NAI. Sebelumnya `||a|b||` dipaste literal ke prompt field.
+- **Category/Placeholder tab management** — tambah tombol `✎` rename dan `×` delete inline di tab aktif, plus `+` untuk add category baru.
+
+### Changed
+- **Help modal** — weight syntax diperbarui (tambah `{{tag}}`, ganti contoh ke `3::tag::` sesuai docs NAI), deskripsi randomizer diperbaiki ("Apply+ picks one randomly; Queue expands all"), placeholder section tambah note soal perbedaan `{name}` substitution vs `{tag}` weight boost.
+
+---
+
 ## [3.3.0] — March 2026
 
 ### Changed
