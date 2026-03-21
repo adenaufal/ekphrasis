@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ekphrasis — Prompt Studio for NovelAI</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0f0f0f;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 560px;
+      width: 100%;
+      text-align: center;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: #888;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      font-size: 48px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      color: #fff;
+      margin-bottom: 12px;
+    }
+
+    .tagline {
+      font-size: 15px;
+      color: #888;
+      line-height: 1.6;
+      margin-bottom: 40px;
+    }
+
+    .install-btn {
+      display: inline-block;
+      padding: 16px 40px;
+      background: #fff;
+      color: #000;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      text-decoration: none;
+      transition: background 0.15s, transform 0.15s;
+      margin-bottom: 12px;
+    }
+
+    .install-btn:hover {
+      background: #e0e0e0;
+      transform: translateY(-2px);
+    }
+
+    .install-btn:active {
+      transform: translateY(0);
+    }
+
+    .install-note {
+      font-size: 11px;
+      color: #555;
+      margin-bottom: 56px;
+    }
+
+    .install-note a {
+      color: #888;
+      text-decoration: underline;
+    }
+
+    .features {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2px;
+      text-align: left;
+      margin-bottom: 48px;
+    }
+
+    .feature {
+      background: #1a1a1a;
+      padding: 16px 18px;
+    }
+
+    .feature-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: #fff;
+      margin-bottom: 5px;
+    }
+
+    .feature-desc {
+      font-size: 12px;
+      color: #666;
+      line-height: 1.5;
+    }
+
+    .footer {
+      font-size: 11px;
+      color: #444;
+    }
+
+    .footer a {
+      color: #666;
+      text-decoration: none;
+    }
+
+    .footer a:hover {
+      color: #999;
+    }
+
+    @media (max-width: 480px) {
+      h1 { font-size: 36px; }
+      .features { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <span class="badge">Tampermonkey Userscript</span>
+    <h1>Ekphrasis</h1>
+    <p class="tagline">Prompt studio for NovelAI — templates, placeholders,<br>composition presets, and batch queue.</p>
+
+    <a class="install-btn" href="./ekphrasis.user.js">⬇ Install Script</a>
+    <p class="install-note">
+      Requires <a href="https://www.tampermonkey.net/" target="_blank" rel="noopener">Tampermonkey</a> (Chrome / Firefox / Edge / Safari).
+      Click install, confirm, then open <strong>novelai.net/image</strong>.
+    </p>
+
+    <div class="features">
+      <div class="feature">
+        <div class="feature-title">Templates</div>
+        <div class="feature-desc">Save and reuse prompt snippets. Organize by category. One click to apply.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Placeholders</div>
+        <div class="feature-desc">Define <code>{artist}</code>, <code>{character}</code>, and custom types. Select values to substitute at queue time.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Batch Queue</div>
+        <div class="feature-desc">Auto-generate all permutations of templates × placeholder combinations with a configurable delay.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Framing Presets</div>
+        <div class="feature-desc">One-click shot distance, camera angle, body focus, and pose tags — straight into the prompt.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Randomizer</div>
+        <div class="feature-desc">Use <code>||opt1|opt2|opt3||</code> syntax to expand variants into separate queue entries automatically.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Weight Syntax</div>
+        <div class="feature-desc">Supports <code>1.5::tag::</code> numerical weights (V4.5+) and legacy <code>{tag}</code> / <code>[tag]</code> multipliers.</div>
+      </div>
+    </div>
+
+    <p class="footer">
+      <a href="./CHANGELOG.md">Changelog</a> &nbsp;·&nbsp;
+      <a href="./ekphrasis.user.js">Raw script</a>
+    </p>
+  </div>
+</body>
+</html>
