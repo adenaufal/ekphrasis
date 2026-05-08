@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ekphrasis
 // @namespace    ekphrasis
-// @version      3.5.2
+// @version      3.5.3
 // @description  Prompt studio for NovelAI — templates, weights, randomizers, framing presets, and batch queue
 // @author       adenaufal
 // @match        https://novelai.net/image*
@@ -19,7 +19,7 @@
   // CONFIGURATION
   // ============================================
   const CONFIG = {
-    VERSION: "3.5.2",
+    VERSION: "3.5.3",
     STORAGE_KEY_TEMPLATES: "nai_ext_templates_v3",
     STORAGE_KEY_PLACEHOLDERS: "nai_ext_placeholders",
     STORAGE_KEY_CATEGORIES: "nai_ext_categories",
@@ -36,6 +36,7 @@
     BATCH_ADD_YIELD_INTERVAL: 250,
     PLACEHOLDER_RENDER_PAGE_SIZE: 200,
     FREE_SAFE_MAX_STEPS: 28,
+    RANDOMIZER_DEFAULT_ENABLED: false,
   };
 
   // ============================================
@@ -1401,6 +1402,8 @@
     placeholderRenderLimit: {}, // { artist: 200 }
     currentPlaceholderTab: "artist",
     currentCategoryFilter: "all",
+    // Placeholder search state
+    placeholderSearchQuery: "",
     // Queue state
     queue: [],
     failedQueueItems: [], // Track indices of failed generations
@@ -1412,6 +1415,7 @@
       delayBetweenGenerations: 2000,
       autoStartQueue: false,
       freeSafeMode: false,
+      randomizerEnabled: false,
     },
     // Weight syntax state
     weightPresets: {}, // Custom weight presets
@@ -2011,6 +2015,31 @@
             </div>
 
             <div class="nai-ext-body">
+                <!-- Syntax Reference Section -->
+                <div class="nai-ext-section" id="nai-ext-syntax-section">
+                    <div class="nai-ext-section-header collapsible">
+                        <span class="nai-ext-section-icon">📚</span>
+                        <span>SYNTAX GUIDE</span>
+                    </div>
+                    <div class="nai-ext-section-content" style="padding:8px;background:#f9f9f9;border-radius:0;font-size:10px;line-height:1.5;">
+                        <div style="margin-bottom:8px;">
+                            <strong style="display:block;margin-bottom:3px;">🏷️ Placeholders</strong>
+                            <code style="background:#fff;padding:3px 5px;border:1px solid #e0e0e0;display:block;margin:3px 0;font-size:9px;">{artist}, {character}, {style}</code>
+                            <span style="color:#666;">Select values from tabs → inserted on Apply/Queue</span>
+                        </div>
+                        <div style="margin-bottom:8px;">
+                            <strong style="display:block;margin-bottom:3px;">⚖️ Weights (V4.5)</strong>
+                            <code style="background:#fff;padding:3px 5px;border:1px solid #e0e0e0;display:block;margin:3px 0;font-size:9px;">3::tag:: -1::tag::</code>
+                            <span style="color:#666;">Numerical emphasis. Use in templates.</span>
+                        </div>
+                        <div>
+                            <strong style="display:block;margin-bottom:3px;">🎲 Randomizer (RAND ON)</strong>
+                            <code style="background:#fff;padding:3px 5px;border:1px solid #e0e0e0;display:block;margin:3px 0;font-size:9px;">||opt1|opt2|opt3||</code>
+                            <span style="color:#666;">When enabled: Apply→picks 1, Queue→expands all</span>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Templates Section -->
                 <div class="nai-ext-section" id="nai-ext-templates-section">
                     <div class="nai-ext-section-header collapsible">
@@ -2037,32 +2066,54 @@
                         <span>PLACEHOLDERS</span>
                     </div>
                     <div class="nai-ext-section-content">
+                        <!-- Tab selector -->
                         <div class="nai-ext-tabs" id="nai-ext-placeholder-tabs">
                             <button class="nai-ext-tab active" data-placeholder="artist">artist</button>
                             <button class="nai-ext-tab" data-placeholder="character">character</button>
                             <button class="nai-ext-tab" data-placeholder="style">style</button>
                             <button class="nai-ext-tab nai-ext-tab-add" id="nai-ext-add-placeholder-type">+</button>
                         </div>
+
+                        <!-- Search + Stats -->
+                        <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;">
+                            <input type="text" class="nai-ext-input" id="nai-ext-placeholder-search" placeholder="Search..." style="flex:1;font-size:11px;padding:5px 8px;">
+                            <div style="font-size:10px;color:#666;font-weight:600;min-width:60px;text-align:right;"><span id="nai-ext-placeholder-stats">0/0</span></div>
+                        </div>
+
+                        <!-- Values list -->
                         <div class="nai-ext-placeholder-values" id="nai-ext-placeholder-values">
                             <div class="nai-ext-empty">No values added</div>
                         </div>
+
+                        <!-- Selection controls -->
                         <div class="nai-ext-btn-row" style="margin-bottom: 8px;">
                             <button class="nai-ext-btn secondary" id="nai-ext-select-all" style="flex:1; font-size: 10px;">✓ All</button>
                             <button class="nai-ext-btn secondary" id="nai-ext-deselect-all" style="flex:1; font-size: 10px;">✗ None</button>
-                            <button class="nai-ext-btn danger" id="nai-ext-delete-selected" style="flex:1; font-size: 10px; display:none;">🗑</button>
+                            <button class="nai-ext-btn danger" id="nai-ext-delete-selected" style="flex:1; font-size: 10px; display:none;">🗑 Del</button>
                         </div>
-                        <div class="nai-ext-input-group">
-                            <input type="text" class="nai-ext-input" id="nai-ext-value-input" placeholder="Enter value...">
+
+                        <!-- Input mode selector -->
+                        <div style="display:flex;gap:5px;margin-bottom:8px;">
+                            <button class="nai-ext-btn nai-ext-btn-full" id="nai-ext-single-mode-btn" style="flex:1;padding:6px;font-size:11px;opacity:0.7;">Single</button>
+                            <button class="nai-ext-btn nai-ext-btn-full secondary" id="nai-ext-batch-mode-btn" style="flex:1;padding:6px;font-size:11px;">Batch</button>
+                        </div>
+
+                        <!-- Single value input -->
+                        <div id="nai-ext-single-input-area" style="display:flex;gap:5px;margin-bottom:8px;">
+                            <input type="text" class="nai-ext-input" id="nai-ext-value-input" placeholder="Enter value..." style="flex:1;">
                             <button class="nai-ext-btn" id="nai-ext-add-value">Add</button>
-                            <button class="nai-ext-btn secondary" id="nai-ext-batch-toggle" title="Batch add">📋</button>
                         </div>
-                        <div id="nai-ext-batch-area" style="display: none; margin-top: 8px;">
-                            <textarea class="nai-ext-textarea" id="nai-ext-batch-input" placeholder="Paste values (one per line or comma-separated)"></textarea>
+
+                        <!-- Batch input -->
+                        <div id="nai-ext-batch-input-area" style="display: none; margin-bottom:8px;">
+                            <textarea class="nai-ext-textarea" id="nai-ext-batch-input" placeholder="Paste values (one per line or comma-separated)&#10;Example: red, blue, green&#10;or&#10;red&#10;blue&#10;green"></textarea>
                             <button class="nai-ext-btn nai-ext-btn-full secondary" id="nai-ext-batch-add" style="margin-top: 6px;">+ Add All</button>
                         </div>
+
+                        <!-- Options -->
                         <label class="nai-ext-checkbox-row">
                             <input type="checkbox" id="nai-ext-prefix-toggle">
-                            <span>Add prefix (e.g., artist:value)</span>
+                            <span title="e.g., artist:value">Add prefix (type:value)</span>
                         </label>
                     </div>
                 </div>
@@ -2142,6 +2193,7 @@
                         <input type="number" class="nai-ext-footer-number-input" id="nai-ext-delay" value="2000" min="500" max="30000" step="500">
                         <span class="nai-ext-footer-label">ms</span>
                         <button class="nai-ext-footer-icon-btn" id="nai-ext-free-safe-toggle" title="Toggle Free-safe mode (Opus: max 28 steps)">FREE OFF</button>
+                        <button class="nai-ext-footer-icon-btn" id="nai-ext-randomizer-toggle" title="Toggle randomizer expansion in Apply/Queue">RAND OFF</button>
                         <button class="nai-ext-footer-icon-btn" id="nai-ext-export" title="Export config">📥</button>
                         <button class="nai-ext-footer-icon-btn" id="nai-ext-import" title="Import config">📤</button>
                         <input type="file" id="nai-ext-import-file" accept=".json" style="display:none;">
@@ -2491,40 +2543,56 @@
     const currentType = state.currentPlaceholderTab;
     const values = state.placeholders[currentType] || [];
     const selected = state.selectedPlaceholders[currentType] || [];
+    const searchQuery = (state.placeholderSearchQuery || "").toLowerCase();
 
-    if (values.length === 0) {
-      container.innerHTML = '<div class="nai-ext-empty">No values added</div>';
+    // Filter by search query
+    const filtered = searchQuery
+      ? values.filter((v) => v.toLowerCase().includes(searchQuery))
+      : values;
+
+    // Update stats
+    const statsEl = document.getElementById("nai-ext-placeholder-stats");
+    if (statsEl) {
+      statsEl.textContent = `${selected.length}/${filtered.length}`;
+    }
+
+    if (filtered.length === 0) {
+      container.innerHTML =
+        searchQuery && values.length > 0
+          ? '<div class="nai-ext-empty">No matches found</div>'
+          : '<div class="nai-ext-empty">No values added</div>';
       return;
     }
 
     const currentLimit =
       state.placeholderRenderLimit[currentType] ||
       CONFIG.PLACEHOLDER_RENDER_PAGE_SIZE;
-    const visibleCount = Math.min(values.length, currentLimit);
+    const visibleCount = Math.min(filtered.length, currentLimit);
 
-    let html = values
+    let html = filtered
       .slice(0, visibleCount)
-      .map(
-        (value, index) => `
-            <div class="nai-ext-artist-tag ${selected.includes(index) ? "selected" : ""}"
-                 data-index="${index}">
+      .map((value, filteredIndex) => {
+        const actualIndex = values.indexOf(value);
+        return `
+            <div class="nai-ext-artist-tag ${selected.includes(actualIndex) ? "selected" : ""}"
+                 data-index="${actualIndex}">
                 <span>${escapeHtml(value)}</span>
-                <span class="nai-ext-artist-remove" data-index="${index}">×</span>
+                <span class="nai-ext-artist-remove" data-index="${actualIndex}">×</span>
             </div>
-        `,
-      )
+        `;
+      })
       .join("");
 
-    if (values.length > visibleCount) {
+    if (filtered.length > visibleCount) {
       html += `
         <div style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:4px 0;">
-          <span style="font-size:10px;color:#666;">Showing ${visibleCount}/${values.length}</span>
+          <span style="font-size:10px;color:#666;">Showing ${visibleCount}/${filtered.length}</span>
           <button class="nai-ext-btn secondary" id="nai-ext-load-more-placeholders" style="padding:4px 8px;font-size:10px;">Load +${CONFIG.PLACEHOLDER_RENDER_PAGE_SIZE}</button>
         </div>
       `;
-    } else if (values.length > CONFIG.PLACEHOLDER_RENDER_PAGE_SIZE) {
+    } else if (filtered.length > CONFIG.PLACEHOLDER_RENDER_PAGE_SIZE) {
       html += `
-        <div style="width:100%;font-size:10px;color:#666;padding:2px 0;">Showing all ${values.length} values</div>
+        <div style="width:100%;font-size:10px;color:#666;padding:2px 0;">Showing all ${filtered.length} values</div>
       `;
     }
 
@@ -3037,6 +3105,17 @@
     btn.style.borderColor = enabled ? "#16a34a" : "#1a1a1a";
   }
 
+  function updateRandomizerToggleUI() {
+    const btn = document.getElementById("nai-ext-randomizer-toggle");
+    if (!btn) return;
+
+    const enabled = !!state.settings.randomizerEnabled;
+    btn.textContent = enabled ? "RAND ON" : "RAND OFF";
+    btn.style.background = enabled ? "#2563eb" : "#ffffff";
+    btn.style.color = enabled ? "#ffffff" : "#1a1a1a";
+    btn.style.borderColor = enabled ? "#2563eb" : "#1a1a1a";
+  }
+
   function retryFailedItems() {
     if (state.failedQueueItems.length === 0) return;
     const failedPrompts = state.failedQueueItems.map((i) => state.queue[i]);
@@ -3229,15 +3308,31 @@
         }
       });
 
-    // Batch toggle button
+    // Placeholder search
     document
-      .getElementById("nai-ext-batch-toggle")
+      .getElementById("nai-ext-placeholder-search")
+      ?.addEventListener("input", (e) => {
+        state.placeholderSearchQuery = e.target.value.trim();
+        renderPlaceholders();
+      });
+
+    // Single vs Batch mode toggle
+    document
+      .getElementById("nai-ext-single-mode-btn")
       ?.addEventListener("click", () => {
-        const batchArea = document.getElementById("nai-ext-batch-area");
-        if (batchArea) {
-          batchArea.style.display =
-            batchArea.style.display === "none" ? "block" : "none";
-        }
+        document.getElementById("nai-ext-single-input-area").style.display = "flex";
+        document.getElementById("nai-ext-batch-input-area").style.display = "none";
+        document.getElementById("nai-ext-single-mode-btn").style.opacity = "0.7";
+        document.getElementById("nai-ext-batch-mode-btn").style.opacity = "1";
+      });
+
+    document
+      .getElementById("nai-ext-batch-mode-btn")
+      ?.addEventListener("click", () => {
+        document.getElementById("nai-ext-single-input-area").style.display = "none";
+        document.getElementById("nai-ext-batch-input-area").style.display = "block";
+        document.getElementById("nai-ext-single-mode-btn").style.opacity = "1";
+        document.getElementById("nai-ext-batch-mode-btn").style.opacity = "0.7";
       });
 
     // Batch add button
@@ -3535,6 +3630,14 @@
         updateFreeSafeToggleUI();
       });
 
+    document
+      .getElementById("nai-ext-randomizer-toggle")
+      ?.addEventListener("click", () => {
+        state.settings.randomizerEnabled = !state.settings.randomizerEnabled;
+        saveSettings();
+        updateRandomizerToggleUI();
+      });
+
     // Export button
     document
       .getElementById("nai-ext-export")
@@ -3641,8 +3744,10 @@
       }
     }
 
-    // Resolve randomizer: pick one random option per group
-    result = Randomizer.pickRandom(result);
+    // Resolve randomizer only when enabled.
+    if (state.settings.randomizerEnabled) {
+      result = Randomizer.pickRandom(result);
+    }
 
     NovelAI.setPrompt(result);
 
@@ -3662,7 +3767,9 @@
     );
 
     if (selectedTypes.length === 0) {
-      // Check for randomizer syntax
+      if (!state.settings.randomizerEnabled) {
+        return [template];
+      }
       const variations = Randomizer.generateVariations(template);
       return variations;
     }
@@ -3681,7 +3788,10 @@
           const regex = new RegExp(`\\{${type}\\}`, "gi");
           result = result.replace(regex, value);
         });
-        // Apply randomizer
+        if (!state.settings.randomizerEnabled) {
+          results.push(result);
+          return;
+        }
         const finalResults = Randomizer.generateVariations(result);
         finalResults.forEach((r) => results.push(r));
         return;
@@ -3913,10 +4023,14 @@
       delayBetweenGenerations: 2000,
       autoStartQueue: false,
       freeSafeMode: false,
+      randomizerEnabled: CONFIG.RANDOMIZER_DEFAULT_ENABLED,
     });
 
     if (typeof state.settings.freeSafeMode !== "boolean") {
       state.settings.freeSafeMode = false;
+    }
+    if (typeof state.settings.randomizerEnabled !== "boolean") {
+      state.settings.randomizerEnabled = CONFIG.RANDOMIZER_DEFAULT_ENABLED;
     }
 
     if (!state.placeholders.artist) state.placeholders.artist = [];
@@ -3936,6 +4050,7 @@
     }
 
     updateFreeSafeToggleUI();
+    updateRandomizerToggleUI();
   }
 
   function saveTemplates() {
@@ -4110,6 +4225,7 @@
         renderPlaceholders();
         updateButtonStates();
         updateFreeSafeToggleUI();
+        updateRandomizerToggleUI();
 
         alert("Configuration imported successfully!");
       } catch (err) {
