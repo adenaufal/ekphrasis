@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Ekphrasis
 // @namespace    ekphrasis
-// @version      3.5.3
-// @description  Prompt studio for NovelAI — templates, weights, randomizers, framing presets, and batch queue
+// @version      3.5.4
+// @description  Prompt studio for NovelAI — templates, weights, randomizers, and batch queue
 // @author       adenaufal
 // @match        https://novelai.net/image*
 // @icon         https://novelai.net/icons/novelai-round.png
@@ -19,7 +19,7 @@
   // CONFIGURATION
   // ============================================
   const CONFIG = {
-    VERSION: "3.5.3",
+    VERSION: "3.5.4",
     STORAGE_KEY_TEMPLATES: "nai_ext_templates_v3",
     STORAGE_KEY_PLACEHOLDERS: "nai_ext_placeholders",
     STORAGE_KEY_CATEGORIES: "nai_ext_categories",
@@ -988,35 +988,6 @@
             white-space: nowrap;
         }
 
-        /* Framing/Composition Quick Buttons */
-        .nai-ext-quick-tags {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 3px;
-            margin-bottom: 6px;
-        }
-
-        .nai-ext-quick-tag {
-            padding: 3px 8px;
-            background: #ffffff;
-            border: 1px solid #d0d0d0;
-            font-size: 10px;
-            cursor: pointer;
-            transition: all 0.15s;
-        }
-
-        .nai-ext-quick-tag:hover {
-            background: #1a1a1a;
-            color: #fff;
-            border-color: #1a1a1a;
-        }
-
-        .nai-ext-quick-tag.active {
-            background: #1a1a1a;
-            color: #fff;
-            border-color: #1a1a1a;
-        }
-
         /* Tag Group Headers */
         .nai-ext-tag-group-header {
             font-size: 10px;
@@ -1047,13 +1018,6 @@
             }
             .nai-ext-template-list {
                 max-height: 140px;
-            }
-            .nai-ext-quick-tags {
-                gap: 2px;
-                margin-bottom: 5px;
-            }
-            .nai-ext-quick-tag {
-                padding: 2px 6px;
             }
         }
 
@@ -1498,19 +1462,18 @@
     },
 
     enforceFreeSafeSteps(maxSteps = CONFIG.FREE_SAFE_MAX_STEPS) {
-      // FREE-safe mode behavior: ONLY caps to 28 if you're OVER 28.
-      // If current = 12 steps, stays 12. If current = 50, caps to 28.
-      // This is a safety net for Opus free-gen limit, NOT a force-to-28.
+      // FREE-safe mode behavior: always force the steps input to the safe ceiling.
+      // When enabled, 12 becomes 28 and 50 also becomes 28.
       const input = this.getStepsInput();
       if (!input) return { ok: false, reason: "steps-input-not-found" };
 
       const current = parseInt(input.value, 10);
-      if (Number.isFinite(current) && current <= maxSteps) {
+      if (Number.isFinite(current) && current === maxSteps) {
         return { ok: true, changed: false, value: current };
       }
 
       this.setNumericInputValue(input, maxSteps);
-      return { ok: true, changed: true, value: maxSteps };
+      return { ok: true, changed: true, previousValue: current, value: maxSteps };
     },
 
     getCurrentPrompt() {
@@ -2090,14 +2053,14 @@
                 <!-- Strip 1: Quick Apply -->
                 <div class="nai-ext-footer-strip" id="nai-ext-apply-strip">
                     <div class="nai-ext-footer-panel" id="nai-ext-apply-panel">
-                        <div id="nai-ext-preview" style="font-size:11px;color:#666;font-family:'Consolas','Monaco',monospace;word-break:break-all;background:#f8f8f8;border:1px solid #e0e0e0;padding:6px;max-height:70px;overflow-y:auto;margin-bottom:4px;">Select a template to preview</div>
-                        <div id="nai-ext-preview-negative" style="display:none;font-size:10px;color:#999;background:#f0f0f0;border:1px solid #e0e0e0;padding:5px;font-family:'Consolas','Monaco',monospace;word-break:break-all;max-height:50px;overflow-y:auto;"></div>
+                    <div id="nai-ext-preview" title="Resolved positive prompt preview" style="font-size:11px;color:#666;font-family:'Consolas','Monaco',monospace;word-break:break-all;background:#f8f8f8;border:1px solid #e0e0e0;padding:6px;max-height:70px;overflow-y:auto;margin-bottom:4px;">Select a template to preview</div>
+                    <div id="nai-ext-preview-negative" title="Linked negative prompt preview" style="display:none;font-size:10px;color:#999;background:#f0f0f0;border:1px solid #e0e0e0;padding:5px;font-family:'Consolas','Monaco',monospace;word-break:break-all;max-height:50px;overflow-y:auto;"></div>
                     </div>
                     <div class="nai-ext-footer-bar" id="nai-ext-apply-bar">
                         <span style="font-size:11px;flex-shrink:0;">⚡</span>
-                        <span class="nai-ext-footer-preview-text" id="nai-ext-footer-preview-text">No template selected</span>
-                        <button class="nai-ext-footer-apply-btn" id="nai-ext-apply-prompt" disabled>Apply+</button>
-                        <button class="nai-ext-footer-apply-btn secondary" id="nai-ext-apply-both" disabled>Both</button>
+                    <span class="nai-ext-footer-preview-text" id="nai-ext-footer-preview-text" title="Inline preview of the resolved prompt">No template selected</span>
+                    <button class="nai-ext-footer-apply-btn" id="nai-ext-apply-prompt" disabled title="Apply the resolved positive prompt to NovelAI">Apply+</button>
+                    <button class="nai-ext-footer-apply-btn secondary" id="nai-ext-apply-both" disabled title="Apply the positive prompt and its linked negative prompt">Both</button>
                         <button class="nai-ext-footer-toggle" id="nai-ext-apply-toggle" title="Expand preview"></button>
                     </div>
                 </div>
@@ -2114,19 +2077,19 @@
                                 <div class="nai-ext-progress-fill" id="nai-ext-progress-fill" style="width:0%"></div>
                             </div>
                         </div>
-                        <div class="nai-ext-queue-list" id="nai-ext-queue-list" style="max-height:130px;">
+                          <div class="nai-ext-queue-list" id="nai-ext-queue-list" title="Queued prompts. Hover each row to inspect the full prompt." style="max-height:130px;">
                             <div class="nai-ext-empty">Queue is empty</div>
                         </div>
-                        <button class="nai-ext-btn nai-ext-btn-full secondary" id="nai-ext-add-to-queue" disabled style="margin-top:5px;font-size:10px;padding:5px;">+ Add Selected to Queue</button>
+                          <button class="nai-ext-btn nai-ext-btn-full secondary" id="nai-ext-add-to-queue" disabled title="Add every selected prompt combination to the queue" style="margin-top:5px;font-size:10px;padding:5px;">+ Add Selected to Queue</button>
                     </div>
                     <div class="nai-ext-footer-bar" id="nai-ext-queue-bar">
                         <div class="nai-ext-status-dot" id="nai-ext-queue-dot"></div>
-                        <span class="nai-ext-footer-queue-counter" id="nai-ext-queue-counter">0/0</span>
-                        <button class="nai-ext-footer-queue-btn" id="nai-ext-start-queue" disabled>▶</button>
-                        <button class="nai-ext-footer-queue-btn" id="nai-ext-resume-queue" disabled style="display:none;">▶</button>
-                        <button class="nai-ext-footer-queue-btn" id="nai-ext-pause-queue" disabled>⏸</button>
-                        <button class="nai-ext-footer-queue-btn" id="nai-ext-stop-queue" disabled>⏹</button>
-                        <button class="nai-ext-footer-queue-btn" id="nai-ext-clear-queue" disabled>🗑</button>
+                          <span class="nai-ext-footer-queue-counter" id="nai-ext-queue-counter" title="Queue progress">0/0</span>
+                          <button class="nai-ext-footer-queue-btn" id="nai-ext-start-queue" disabled title="Start queue processing">▶</button>
+                          <button class="nai-ext-footer-queue-btn" id="nai-ext-resume-queue" disabled style="display:none;" title="Resume queue processing">▶</button>
+                          <button class="nai-ext-footer-queue-btn" id="nai-ext-pause-queue" disabled title="Pause the running queue">⏸</button>
+                          <button class="nai-ext-footer-queue-btn" id="nai-ext-stop-queue" disabled title="Stop the running queue">⏹</button>
+                          <button class="nai-ext-footer-queue-btn" id="nai-ext-clear-queue" disabled title="Clear every queued item">🗑</button>
                         <button class="nai-ext-footer-queue-btn" id="nai-ext-retry-failed" disabled style="display:none;" title="Retry failed items">↺</button>
                         <button class="nai-ext-footer-queue-btn" id="nai-ext-batch-import" title="Batch raw import">📋</button>
                         <button class="nai-ext-footer-toggle" id="nai-ext-queue-toggle" title="Expand queue"></button>
@@ -2138,10 +2101,10 @@
                     <div class="nai-ext-footer-bar" id="nai-ext-settings-bar">
                         <span style="font-size:11px;flex-shrink:0;">⚙️</span>
                         <span class="nai-ext-footer-label">Delay</span>
-                        <input type="number" class="nai-ext-footer-number-input" id="nai-ext-delay" value="2000" min="500" max="30000" step="500">
+                      <input type="number" class="nai-ext-footer-number-input" id="nai-ext-delay" value="2000" min="500" max="30000" step="500" title="Delay between queue generations in milliseconds">
                         <span class="nai-ext-footer-label">ms</span>
-                        <button class="nai-ext-footer-icon-btn" id="nai-ext-free-safe-toggle" title="Toggle Free-safe mode (Opus: max 28 steps)">FREE OFF</button>
-                        <button class="nai-ext-footer-icon-btn" id="nai-ext-randomizer-toggle" title="Toggle randomizer expansion in Apply/Queue">RAND OFF</button>
+                      <button class="nai-ext-footer-icon-btn" id="nai-ext-free-safe-toggle" title="FREE OFF: leave the current steps value unchanged">FREE OFF</button>
+                      <button class="nai-ext-footer-icon-btn" id="nai-ext-randomizer-toggle" title="RAND OFF: keep randomizer blocks unresolved until enabled">RAND OFF</button>
                         <button class="nai-ext-footer-icon-btn" id="nai-ext-export" title="Export config">📥</button>
                         <button class="nai-ext-footer-icon-btn" id="nai-ext-import" title="Import config">📤</button>
                         <input type="file" id="nai-ext-import-file" accept=".json" style="display:none;">
@@ -2697,9 +2660,12 @@
 
     if (state.queue.length === 0) {
       list.innerHTML = '<div class="nai-ext-empty">Queue is empty</div>';
+      list.title = "Queue is empty.";
       document.getElementById("nai-ext-progress").style.display = "none";
       return;
     }
+
+    list.title = `Queued prompts: ${state.queue.length}. Hover each row to inspect the full prompt.`;
 
     list.innerHTML = state.queue
       .map((item, index) => {
@@ -2724,7 +2690,7 @@
                     <span class="nai-ext-queue-status">${statusIcon}</span>
                     <span class="nai-ext-queue-text" title="${escapeHtml(item)}">${escapeHtml(item)}</span>
                     ${isFailed ? `<button class="nai-ext-queue-retry" data-index="${index}" title="Retry this item">↺</button>` : ""}
-                    <button class="nai-ext-queue-remove" data-index="${index}">×</button>
+              <button class="nai-ext-queue-remove" data-index="${index}" title="Remove this queued item">×</button>
                 </div>
             `;
       })
@@ -2744,6 +2710,10 @@
       progressLabel.textContent = `${completed}/${total}`;
       progressPercent.textContent = `${percent}%`;
       progressFill.style.width = `${percent}%`;
+      progress.title = `Queue progress: ${completed} of ${total} completed (${percent}%)`;
+      progressLabel.title = `Completed ${completed} of ${total} queued prompts`;
+      progressPercent.title = `Queue progress is ${percent}%`;
+      progressFill.title = `Queue progress bar at ${percent}%`;
     }
 
     list.querySelectorAll(".nai-ext-queue-remove").forEach((btn) => {
@@ -2796,11 +2766,18 @@
 
     // Sync footer queue dot and counter
     const footerDot = document.getElementById("nai-ext-queue-dot");
-    if (footerDot) footerDot.className = dot.className;
+    if (footerDot) {
+      footerDot.className = dot.className;
+      footerDot.title = text.textContent;
+    }
     const footerCounter = document.getElementById("nai-ext-queue-counter");
     if (footerCounter) {
       const done = Math.min(state.currentQueueIndex, state.queue.length);
       footerCounter.textContent = `${done}/${state.queue.length}`;
+      footerCounter.title =
+        state.queue.length > 0
+          ? `${text.textContent}. ${done} of ${state.queue.length} queue items processed.`
+          : text.textContent;
     }
   }
 
@@ -2810,10 +2787,20 @@
     if (!preview) return;
 
     if (state.selectedTemplates.length === 0) {
-      preview.textContent =
-        "Select template(s) and placeholder values to preview";
+      const emptyMessage = "Select template(s) and placeholder values to preview";
+      preview.textContent = emptyMessage;
+      preview.title = emptyMessage;
       preview.style.color = "#999";
-      if (previewNeg) previewNeg.style.display = "none";
+      if (previewNeg) {
+        previewNeg.style.display = "none";
+        previewNeg.title = "";
+      }
+      const footerPreviewText = document.getElementById("nai-ext-footer-preview-text");
+      if (footerPreviewText) {
+        footerPreviewText.textContent = "No template selected";
+        footerPreviewText.title = emptyMessage;
+        footerPreviewText.style.color = "#888";
+      }
       return;
     }
 
@@ -2853,14 +2840,17 @@
     if (state.selectedTemplates.length > 1) {
       preview.textContent += ` (+${state.selectedTemplates.length - 1} more)`;
     }
+    preview.title = preview.textContent;
 
     // Show negative preview
     if (previewNeg) {
       if (negTemplate) {
         previewNeg.textContent = `Negative: ${negTemplate}`;
         previewNeg.style.display = "block";
+        previewNeg.title = previewNeg.textContent;
       } else {
         previewNeg.style.display = "none";
+        previewNeg.title = "";
       }
     }
 
@@ -2868,6 +2858,7 @@
     const footerPreviewText = document.getElementById("nai-ext-footer-preview-text");
     if (footerPreviewText) {
       footerPreviewText.textContent = preview.textContent || "No template selected";
+      footerPreviewText.title = footerPreviewText.textContent;
       footerPreviewText.style.color = state.selectedTemplates.length === 0 ? "#888" : "#444";
     }
   }
@@ -2947,12 +2938,7 @@
     updateQueueStatus();
     renderQueue();
 
-    if (state.settings.freeSafeMode) {
-      const preflight = NovelAI.enforceFreeSafeSteps(CONFIG.FREE_SAFE_MAX_STEPS);
-      if (!preflight.ok) {
-        console.warn("NAI Ext: Free-safe mode enabled but steps input was not found.");
-      }
-    }
+    syncFreeSafeSteps();
 
     NovelAI.setPrompt(prompt);
 
@@ -3034,6 +3020,18 @@
     renderQueue();
   }
 
+  function syncFreeSafeSteps() {
+    if (!state.settings.freeSafeMode) {
+      return { ok: true, skipped: true, value: null };
+    }
+
+    const syncResult = NovelAI.enforceFreeSafeSteps(CONFIG.FREE_SAFE_MAX_STEPS);
+    if (!syncResult.ok) {
+      console.warn("NAI Ext: Free-safe mode enabled but steps input was not found.");
+    }
+    return syncResult;
+  }
+
   function updateFreeSafeToggleUI() {
     const btn = document.getElementById("nai-ext-free-safe-toggle");
     if (!btn) return;
@@ -3043,6 +3041,9 @@
     btn.style.background = enabled ? "#16a34a" : "#ffffff";
     btn.style.color = enabled ? "#ffffff" : "#1a1a1a";
     btn.style.borderColor = enabled ? "#16a34a" : "#1a1a1a";
+    btn.title = enabled
+      ? "FREE ON: force steps to 28 immediately and before Apply+/Queue runs"
+      : "FREE OFF: leave the current steps value unchanged";
   }
 
   function updateRandomizerToggleUI() {
@@ -3054,6 +3055,9 @@
     btn.style.background = enabled ? "#2563eb" : "#ffffff";
     btn.style.color = enabled ? "#ffffff" : "#1a1a1a";
     btn.style.borderColor = enabled ? "#2563eb" : "#1a1a1a";
+    btn.title = enabled
+      ? "RAND ON: Apply+ picks one option, Queue expands every variation"
+      : "RAND OFF: keep randomizer blocks unchanged in Apply+/Queue";
   }
 
   function retryFailedItems() {
@@ -3559,7 +3563,19 @@
         state.settings.freeSafeMode = !state.settings.freeSafeMode;
         saveSettings();
         updateFreeSafeToggleUI();
+        syncFreeSafeSteps();
       });
+
+    document.addEventListener(
+      "change",
+      (e) => {
+        if (!state.settings.freeSafeMode) return;
+        const stepsInput = NovelAI.getStepsInput();
+        if (!stepsInput || e.target !== stepsInput) return;
+        syncFreeSafeSteps();
+      },
+      true,
+    );
 
     document
       .getElementById("nai-ext-randomizer-toggle")
@@ -3680,6 +3696,7 @@
       result = Randomizer.pickRandom(result);
     }
 
+    syncFreeSafeSteps();
     NovelAI.setPrompt(result);
 
     if (includeNegative) {
@@ -3982,6 +3999,7 @@
 
     updateFreeSafeToggleUI();
     updateRandomizerToggleUI();
+    syncFreeSafeSteps();
   }
 
   function saveTemplates() {
@@ -4157,6 +4175,7 @@
         updateButtonStates();
         updateFreeSafeToggleUI();
         updateRandomizerToggleUI();
+        syncFreeSafeSteps();
 
         alert("Configuration imported successfully!");
       } catch (err) {
