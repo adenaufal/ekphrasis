@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ekphrasis
 // @namespace    ekphrasis
-// @version      3.5.0
+// @version      3.5.1
 // @description  Prompt studio for NovelAI — templates, weights, randomizers, framing presets, and batch queue
 // @author       adenaufal
 // @match        https://novelai.net/image*
@@ -19,7 +19,7 @@
   // CONFIGURATION
   // ============================================
   const CONFIG = {
-    VERSION: "3.5.0",
+    VERSION: "3.5.1",
     STORAGE_KEY_TEMPLATES: "nai_ext_templates_v3",
     STORAGE_KEY_PLACEHOLDERS: "nai_ext_placeholders",
     STORAGE_KEY_CATEGORIES: "nai_ext_categories",
@@ -33,6 +33,8 @@
     DEFAULT_PLACEHOLDERS: ["artist", "character", "style"],
     WEIGHT_MULTIPLIER: 1.05,
     PLACEHOLDER_REGEX: /\{(\w+)\}/g,
+    BATCH_ADD_YIELD_INTERVAL: 250,
+    PLACEHOLDER_RENDER_PAGE_SIZE: 200,
   };
 
   // ============================================
@@ -1395,6 +1397,7 @@
     // Currently selected items
     selectedTemplates: [], // Array of template indices for multi-select
     selectedPlaceholders: {}, // { artist: [0, 1], character: [0] }
+    placeholderRenderLimit: {}, // { artist: 200 }
     currentPlaceholderTab: "artist",
     currentCategoryFilter: "all",
     // Queue state
@@ -2355,6 +2358,10 @@
         tab.addEventListener("click", (e) => {
           if (e.target.dataset.phEdit || e.target.dataset.phDel) return;
           state.currentPlaceholderTab = tab.dataset.placeholder;
+          if (!state.placeholderRenderLimit[state.currentPlaceholderTab]) {
+            state.placeholderRenderLimit[state.currentPlaceholderTab] =
+              CONFIG.PLACEHOLDER_RENDER_PAGE_SIZE;
+          }
           renderPlaceholderTabs();
           renderPlaceholders();
         });
@@ -2419,6 +2426,8 @@
         ) {
           const key = name.trim().toLowerCase();
           state.placeholders[key] = [];
+          state.placeholderRenderLimit[key] =
+            CONFIG.PLACEHOLDER_RENDER_PAGE_SIZE;
           state.currentPlaceholderTab = key;
           savePlaceholders();
           renderPlaceholderTabs();
@@ -2440,7 +2449,13 @@
       return;
     }
 
-    container.innerHTML = values
+    const currentLimit =
+      state.placeholderRenderLimit[currentType] ||
+      CONFIG.PLACEHOLDER_RENDER_PAGE_SIZE;
+    const visibleCount = Math.min(values.length, currentLimit);
+
+    let html = values
+      .slice(0, visibleCount)
       .map(
         (value, index) => `
             <div class="nai-ext-artist-tag ${selected.includes(index) ? "selected" : ""}"
@@ -2452,44 +2467,20 @@
       )
       .join("");
 
-    container.querySelectorAll(".nai-ext-artist-tag").forEach((tag) => {
-      tag.addEventListener("click", (e) => {
-        if (e.target.classList.contains("nai-ext-artist-remove")) {
-          e.stopPropagation();
-          const index = parseInt(e.target.dataset.index);
-          const val = state.placeholders[currentType][index];
-          if (confirm(`Remove "${val}"?`)) {
-            state.placeholders[currentType].splice(index, 1);
-            if (state.selectedPlaceholders[currentType]) {
-              state.selectedPlaceholders[currentType] =
-                state.selectedPlaceholders[currentType]
-                  .filter((i) => i !== index)
-                  .map((i) => (i > index ? i - 1 : i));
-            }
-            savePlaceholders();
-            renderPlaceholders();
-            updatePreview();
-            updateButtonStates();
-          }
-          return;
-        }
+    if (values.length > visibleCount) {
+      html += `
+        <div style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:4px 0;">
+          <span style="font-size:10px;color:#666;">Showing ${visibleCount}/${values.length}</span>
+          <button class="nai-ext-btn secondary" id="nai-ext-load-more-placeholders" style="padding:4px 8px;font-size:10px;">Load +${CONFIG.PLACEHOLDER_RENDER_PAGE_SIZE}</button>
+        </div>
+      `;
+    } else if (values.length > CONFIG.PLACEHOLDER_RENDER_PAGE_SIZE) {
+      html += `
+        <div style="width:100%;font-size:10px;color:#666;padding:2px 0;">Showing all ${values.length} values</div>
+      `;
+    }
 
-        const index = parseInt(tag.dataset.index);
-        if (!state.selectedPlaceholders[currentType]) {
-          state.selectedPlaceholders[currentType] = [];
-        }
-        const selectedIdx =
-          state.selectedPlaceholders[currentType].indexOf(index);
-        if (selectedIdx === -1) {
-          state.selectedPlaceholders[currentType].push(index);
-        } else {
-          state.selectedPlaceholders[currentType].splice(selectedIdx, 1);
-        }
-        renderPlaceholders();
-        updatePreview();
-        updateButtonStates();
-      });
-    });
+    container.innerHTML = html;
   }
 
   function renderCompositionBundles() {
@@ -3186,27 +3177,86 @@
     // Batch add button
     document
       .getElementById("nai-ext-batch-add")
-      ?.addEventListener("click", () => {
+      ?.addEventListener("click", async () => {
         const textarea = document.getElementById("nai-ext-batch-input");
         const text = textarea?.value.trim();
         if (!text) return;
 
-        const values = text
-          .split(/[\n,]/)
-          .map((v) => v.trim())
-          .filter((v) => v.length > 0);
+        const batchBtn = document.getElementById("nai-ext-batch-add");
+        if (batchBtn) {
+          batchBtn.disabled = true;
+          batchBtn.textContent = "Processing...";
+        }
 
-        let addedCount = 0;
-        values.forEach((value) => {
-          if (addPlaceholderValue(value)) {
-            addedCount++;
-          }
-        });
+        const result = await addPlaceholderBatch(text);
 
         if (textarea) textarea.value = "";
-        if (addedCount > 0) {
-          alert(`Added ${addedCount} values!`);
+        if (batchBtn) {
+          batchBtn.disabled = false;
+          batchBtn.textContent = "+ Add All";
         }
+
+        alert(
+          `Batch processed: ${result.seenCount} entries\nAdded: ${result.addedCount}\nSkipped duplicates: ${result.duplicateCount}`,
+        );
+      });
+
+    // Placeholder values list: event delegation to avoid per-item listeners
+    document
+      .getElementById("nai-ext-placeholder-values")
+      ?.addEventListener("click", (e) => {
+        const loadMoreBtn = e.target.closest("#nai-ext-load-more-placeholders");
+        if (loadMoreBtn) {
+          const type = state.currentPlaceholderTab;
+          const current =
+            state.placeholderRenderLimit[type] ||
+            CONFIG.PLACEHOLDER_RENDER_PAGE_SIZE;
+          state.placeholderRenderLimit[type] =
+            current + CONFIG.PLACEHOLDER_RENDER_PAGE_SIZE;
+          renderPlaceholders();
+          return;
+        }
+
+        const removeBtn = e.target.closest(".nai-ext-artist-remove");
+        if (removeBtn) {
+          e.stopPropagation();
+          const currentType = state.currentPlaceholderTab;
+          const index = parseInt(removeBtn.dataset.index, 10);
+          const val = state.placeholders[currentType]?.[index];
+          if (val === undefined) return;
+          if (confirm(`Remove "${val}"?`)) {
+            state.placeholders[currentType].splice(index, 1);
+            if (state.selectedPlaceholders[currentType]) {
+              state.selectedPlaceholders[currentType] =
+                state.selectedPlaceholders[currentType]
+                  .filter((i) => i !== index)
+                  .map((i) => (i > index ? i - 1 : i));
+            }
+            savePlaceholders();
+            renderPlaceholders();
+            updatePreview();
+            updateButtonStates();
+          }
+          return;
+        }
+
+        const tag = e.target.closest(".nai-ext-artist-tag");
+        if (!tag) return;
+
+        const currentType = state.currentPlaceholderTab;
+        const index = parseInt(tag.dataset.index, 10);
+        if (!state.selectedPlaceholders[currentType]) {
+          state.selectedPlaceholders[currentType] = [];
+        }
+        const selectedIdx = state.selectedPlaceholders[currentType].indexOf(index);
+        if (selectedIdx === -1) {
+          state.selectedPlaceholders[currentType].push(index);
+        } else {
+          state.selectedPlaceholders[currentType].splice(selectedIdx, 1);
+        }
+        renderPlaceholders();
+        updatePreview();
+        updateButtonStates();
       });
 
     // Select All / Deselect All
@@ -3570,7 +3620,8 @@
     return results.length > 0 ? results : [template];
   }
 
-  function addPlaceholderValue(value) {
+  function addPlaceholderValue(value, options = {}) {
+    const { persist = true, rerender = true, existingSet = null } = options;
     const type = state.currentPlaceholderTab;
     if (!state.placeholders[type]) {
       state.placeholders[type] = [];
@@ -3580,14 +3631,70 @@
     const usePrefix = prefixToggle?.checked || false;
     const finalValue = usePrefix ? `${type}:${value}` : value;
 
-    if (state.placeholders[type].includes(finalValue)) {
+    const setToUse = existingSet || new Set(state.placeholders[type]);
+    if (setToUse.has(finalValue)) {
       return false;
     }
 
     state.placeholders[type].push(finalValue);
-    savePlaceholders();
-    renderPlaceholders();
+    setToUse.add(finalValue);
+
+    if (persist) savePlaceholders();
+    if (rerender) renderPlaceholders();
     return true;
+  }
+
+  async function addPlaceholderBatch(rawText) {
+    const type = state.currentPlaceholderTab;
+    if (!state.placeholders[type]) state.placeholders[type] = [];
+
+    const prefixToggle = document.getElementById("nai-ext-prefix-toggle");
+    const usePrefix = prefixToggle?.checked || false;
+
+    const existingSet = new Set(state.placeholders[type]);
+    let seenCount = 0;
+    let addedCount = 0;
+    let duplicateCount = 0;
+
+    const flushToken = (token) => {
+      const value = token.trim();
+      if (!value) return;
+      seenCount++;
+      const finalValue = usePrefix ? `${type}:${value}` : value;
+      if (existingSet.has(finalValue)) {
+        duplicateCount++;
+        return;
+      }
+      existingSet.add(finalValue);
+      state.placeholders[type].push(finalValue);
+      addedCount++;
+    };
+
+    let token = "";
+    for (let i = 0; i < rawText.length; i++) {
+      const ch = rawText[i];
+      if (ch === "\n" || ch === ",") {
+        flushToken(token);
+        token = "";
+
+        if (
+          seenCount > 0 &&
+          seenCount % CONFIG.BATCH_ADD_YIELD_INTERVAL === 0
+        ) {
+          await delay(0);
+        }
+      } else {
+        token += ch;
+      }
+    }
+    flushToken(token);
+
+    if (addedCount > 0) {
+      savePlaceholders();
+      renderPlaceholders();
+    }
+
+    return { seenCount, addedCount, duplicateCount };
   }
 
   // ============================================
@@ -3736,6 +3843,13 @@
     if (!state.placeholders.artist) state.placeholders.artist = [];
     if (!state.placeholders.character) state.placeholders.character = [];
     if (!state.placeholders.style) state.placeholders.style = [];
+
+    Object.keys(state.placeholders).forEach((type) => {
+      if (!state.placeholderRenderLimit[type]) {
+        state.placeholderRenderLimit[type] =
+          CONFIG.PLACEHOLDER_RENDER_PAGE_SIZE;
+      }
+    });
 
     const delayInput = document.getElementById("nai-ext-delay");
     if (delayInput) {
