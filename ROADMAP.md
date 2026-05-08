@@ -18,18 +18,20 @@
 | v3.9.0 | May 2026 | Negative template click-to-apply + Anlas auto-detection from live NAI DOM |
 | v3.9.1 | May 2026 | Brand design system — dark theme tokens, IBM Plex fonts, SVG logos, landing page redesign |
 | v4.0.0 | May 2026 | Schema v4 alignment — unified library/settings/session docs, ID-based linking, direct `library.json` export/import |
+| v4.0.1 | May 2026 | Panel polish — header brand icon, SemVer badge, drag performance, help modal redesign, minimize state persistence |
+| v4.0.2 | May 2026 | UI icon cleanup — emoji → SVG icons throughout, `.nai-ext-neg-badge` CSS class, collapsible `▾`/`▸` chevrons |
 
-All v1–v4 shipped features are complete. See git history for details.
+All v1–v4.0.2 shipped features are complete. See git history for details.
 
 ---
 
 ## 🚀 Phase 4: Planned
 
 ### 🔴 Active (in-progress)
-- [x] **Negative Template UI** *(v3.6.0)* — CRUD tab + linking positive→negative, tombol Both fungsional
-- [x] **T5 Token Counter** *(v3.7.0)* — live badge `~N/512` di footer, realtime via MutationObserver
-- [x] **Model-Aware Quality Tags** *(v3.7.0)* — Strip 4 footer dengan 5 model preset + Insert button
-- [x] **Estimated Anlas cost calculator** *(v3.8.0)* — Strip 5 footer, Opus toggle, Precise Ref (+5 ea), Vibe Transfer (5th+ +2 ea)
+- [x] **Negative Template UI** *(v3.6.0)* — CRUD tab + positive→negative linking, Both button functional
+- [x] **T5 Token Counter** *(v3.7.0)* — live `~N/512` badge in footer, real-time via MutationObserver
+- [x] **Model-Aware Quality Tags** *(v3.7.0)* — footer Strip 4 with 5 model presets + Insert button
+- [x] **Estimated Anlas cost calculator** *(v3.8.0)* — footer Strip 5, Opus toggle, Precise Ref (+5 ea), Vibe Transfer (5th+ +2 ea)
 - [x] **Schema v4 storage alignment** *(v4.0.0)* — `library/settings/session` docs, legacy migration, direct `library.json` export/import
 
 ### Queue Enhancements
@@ -40,23 +42,23 @@ All v1–v4 shipped features are complete. See git history for details.
 - [x] Bulk import prompts from text file (v3.2.3 — Batch Raw Import modal)
 - [ ] CSV import with columns for each placeholder (planned: Layer 3 — per-row template+placeholder pairing)
 - [ ] Paired Queue mode: zip templates 1-to-1 with placeholder values instead of cross-product permutations (Layer 2)
-- [ ] N-images-per-call optimization: generate 2–4 images per queue item → hemat call overhead
+- [ ] N-images-per-call optimization: generate 2–4 images per queue item to reduce call overhead
 - [ ] Export queue to file for backup
 - [ ] Queue history (view past runs, re-queue, export)
 
 ### Generation Features
 - [ ] Auto-save generated images locally (custom naming, folder structure)
 - [ ] Seed management: save/restore, random toggle, seed history, seed lock
-- [ ] Sampler Preset Manager — simpan kombinasi sampler + steps + guidance dengan nama (misal: "Fast" = Euler 20 step, "Quality" = DPM++ 2M SDE 28 step)
+- [ ] Sampler Preset Manager — save named sampler + steps + guidance combinations (e.g. "Fast" = Euler 20 steps, "Quality" = DPM++ 2M SDE 28 steps)
 
 ### NovelAI-Specific
-- [ ] Art style & medium presets UI — STYLE_PRESETS sudah ada di kode, tinggal buat UI-nya
+- [ ] Art style & medium presets UI — `STYLE_PRESETS` already exists in the codebase; UI still needs to be built
 - [ ] Character reference sheet generator (multiple views, turnaround, expression sheet)
 - [ ] Dataset tag toggles: `fur dataset` (V4+), `background dataset` (V4.5+)
-- [ ] Rating tag quick selector: `rating:general`, `rating:sensitive`, dll
-- [ ] **Precise Reference Image Library** — save/load reference images beserta nilai Info Extracted + Strength; tracker biaya +5 Anlas/ref/image
-- [ ] **Vibe Transfer Library** — simpan reference images yang sering dipakai beserta parameter IE + Strength, quick-apply ke generation
-- [ ] Multi-character Interaction Builder — visual builder untuk syntax `base | char1 | char2` + dropdown action tags (`source#action`, `target#action`, `mutual#action`)
+- [ ] Rating tag quick selector: `rating:general`, `rating:sensitive`, etc.
+- [ ] **Precise Reference Image Library** — save/load reference images with Info Extracted + Strength values; cost tracker (+5 Anlas/ref/image)
+- [ ] **Vibe Transfer Library** — save frequently-used reference images with IE + Strength parameters for quick-apply to generation
+- [ ] Multi-character Interaction Builder — visual builder for `base | char1 | char2` syntax + action tag dropdowns (`source#action`, `target#action`, `mutual#action`)
 
 ---
 
@@ -97,4 +99,4 @@ All v1–v4 shipped features are complete. See git history for details.
 
 ---
 
-*Last updated: May 2026 (v4.0.0)*
+*Last updated: May 2026 (v4.0.2)*

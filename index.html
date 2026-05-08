@@ -958,7 +958,7 @@
       <a class="nav-brand" href="#top">
         <img src="assets/images/logo1.svg" alt="">
         <span><span class="cur">▌</span>ekphrasis</span>
-        <span class="v">v4.0.0</span>
+        <span class="v">v4.0.2</span>
       </a>
       <div class="nav-spacer"></div>
       <div class="nav-links">
@@ -1026,7 +1026,7 @@
 
         <div class="panel" aria-hidden="true">
           <div class="panel-head">
-            <div class="title"><span class="cur">▌</span>ekphrasis<span class="v">v4.0.0</span></div>
+            <div class="title"><span class="cur">▌</span>ekphrasis<span class="v">v4.0.2</span></div>
             <div class="spacer"></div>
             <div class="ico" title="palette"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></div>
             <div class="ico" title="help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.5-1 2-2.5 3"/><circle cx="12" cy="17" r="0.6" fill="currentColor"/></svg></div>
@@ -1445,6 +1445,7 @@
             </summary>
             <div class="answer">
               <p>It polls the page once per second and only fires the next generation after the previous one completes. A configurable inter-generation delay sits on top of that — bump it to 5–10s if you're hitting limits.</p>
+              <p><strong>Known bug:</strong> queue processing can become slower when the NovelAI tab is in the background (for example while alt-tabbing away). Keeping NovelAI visible side-by-side (multi-window) or in the active window is typically faster; many runs average around ~10 seconds per generated image.</p>
               <p>Network failures aren't auto-retried. Failed items stay in the queue marked <code>failed</code> so you can retry them manually.</p>
             </div>
           </details>
@@ -1505,7 +1506,7 @@
         <img src="assets/images/logo1.svg" alt="">
         <span><span style="color:var(--ekp-accent)">▌</span>ekphrasis</span>
       </span>
-      <span>v4.0.0 · MIT</span>
+      <span>v4.0.2 · MIT</span>
       <span class="spacer"></span>
       <a href="./ekphrasis.user.js">Install</a>
       <span class="dot">·</span>

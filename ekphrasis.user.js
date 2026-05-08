@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ekphrasis
 // @namespace    ekphrasis
-// @version      4.0.0
+// @version      4.0.2
 // @description  Prompt studio for NovelAI — templates, weights, randomizers, and batch queue
 // @author       lemburlab
 // @match        https://novelai.net/image*
@@ -19,7 +19,7 @@
   // CONFIGURATION
   // ============================================
   const CONFIG = {
-    VERSION: "4.0.0",
+    VERSION: "4.0.2",
     STORAGE_KEY_LIBRARY: "ekphrasis.library.v4",
     STORAGE_KEY_SETTINGS_DOC: "ekphrasis.settings.v4",
     STORAGE_KEY_SESSION: "ekphrasis.session.v4",
@@ -63,6 +63,17 @@
       uiKey,
     ]),
   );
+
+  const PANEL_ICONS = Object.freeze({
+    brand: `<svg viewBox="0 0 4267 4267" class="nai-ext-brand-mark" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><rect x="1352" y="1600" width="621" height="1055" fill="var(--ekp-accent)"></rect><path fill="var(--ekp-fg-primary)" d="M2585 1737l2.041.236c70.49 8.192 137.389 34.288 190.959 81.764l2.828 2.492c12.932 11.625 25.465 23.787 36.172 37.508 1.58 1.857 3.164 3.711 4.75 5.562 51.17 61.53 76.34 140.23 87.25 218.438l.366 2.551c1.052 7.466 1.882 14.947 2.634 22.449l.209 2.05c2.62 25.988 3.066 51.917 3.041 78.013l-.001 2.355c-.003 4.554-.013 9.108-.036 13.663-.007 1.392-.012 2.784-.016 4.177-.038 10.626-.606 21.111-1.197 31.743l-621 0c1.372 41.159 4.206 80.487 16 120l.847 2.839c8.098 26.598 19.8 52.593 36.153 75.161l1.229 1.701c7.449 10.198 15.835 19.379 24.771 28.299l1.641 1.781c21.424 22.881 52.312 37.845 81.359 48.219l2.143.776c54.368 19.229 122.724 17.171 176.857-.776l2.688-.886c43.202-14.472 82.024-40.15 110.312-76.114.907-1.107 1.816-2.213 2.727-3.316 13.106-15.964 24.446-33.117 35.273-50.684 5.701 3.05 10.635 6.668 15.688 10.688l4.836 3.801 2.347 1.846c2.621 2.05 5.274 4.053 7.942 6.041 5.403 4.026 10.767 8.102 16.125 12.188l2.725 2.077c4.567 3.482 9.132 6.968 13.693 10.458 10.077 7.705 20.212 15.32 30.445 22.816 4.09 2.997 8.149 6.035 12.199 9.086-8.722 16.56-18.787 32.025-30 47l-1.372 1.84c-8.27 11.056-17.168 21.559-26.457 31.77-1.458 1.605-2.906 3.22-4.344 4.844-8.071 9.101-16.56 17.665-25.828 25.547l-2.902 2.566c-20.236 17.813-42.298 32.823-66.098 45.434l-2.01 1.065c-16.217 8.516-33.074 15.804-50.588 21.19-1.644.51-3.285 1.031-4.922 1.563-41.47 13.478-86.121 18.585-129.552 18.442-3.858-.011-7.716 0-11.574.013-15.88.009-31.553-.701-47.354-2.273l-2.245-.215c-73.456-7.079-142.164-34.753-199.755-80.785l-3.113-2.461c-16.393-13.143-32.809-28.162-45.723-44.766-1.612-2.066-3.248-4.06-4.953-6.047-16.2-19.046-29.539-40.67-41.211-62.727l-1.635-3.087c-21.933-41.801-36.358-86.214-44.698-132.571-.491-2.46-1.041-4.844-1.672-7.268-1.002-3.932-1.646-7.882-2.179-11.902l-.303-2.226c-.323-2.398-.638-4.797-.95-7.196l-.33-2.51c-1.623-12.432-2.956-24.87-3.983-37.365l-.178-2.149c-1.623-19.858-2.311-39.678-2.322-59.601l-.002-3.468c.044-48.017 3.722-96.952 13.94-143.97l.772-3.555c16.378-73.884 48.335-142.655 99.505-198.879 1.819-2.015 3.587-4.063 5.348-6.129 7.259-8.323 15.272-15.986 23.688-23.125l2.934-2.598c54.926-48.424 124.879-74.996 197.066-83.402l2.987-.359c34.499-3.931 71.538-3.678 106.013.359zm-56.312 125.562c-15.842.047-31.25.407-46.792 3.792l-2.895.646c-40.039 8.4-81.358 25.846-110.148 55.984l-1.852 2.016c-38.552 41.474-59.765 92.531-68.55 148.133l-.45 2.867c-2.545 15.743-3.358 30.938-4 47l459 0c0-11.425.137-22.036-.914-33.259-.204-1.977-.407-3.953-.603-5.931-1.015-10.259-2.206-20.469-4.074-30.611l-.409-2.2c-7.35-40.967-21.37-81.179-47.613-114.055l-2.387-2.945c-24.654-32.072-62.263-53.513-101.148-63.324l-2.852-.676c-20.254-5.033-40.457-7.541-61.336-7.456l-2.976.019z"></path></svg>`,
+    minimize: `<svg viewBox="0 0 24 24" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><path d="M5 12h14"></path></svg>`,
+    restore: `<svg viewBox="0 0 24 24" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><path d="M9 9h10v10H9z"></path><path d="M5 15V5h10"></path></svg>`,
+    close: `<svg viewBox="0 0 24 24" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><path d="M6 6l12 12"></path><path d="M18 6 6 18"></path></svg>`,
+  });
+
+  const PANEL_EDGE_MARGIN_PX = 12;
+  const PANEL_DRAG_THRESHOLD_PX = 4;
+  const PANEL_CLOSE_ANIMATION_MS = 180;
 
   // ============================================
   // ============================================
@@ -109,6 +120,7 @@
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
 
         /* ============ DESIGN TOKENS ============ */
+        :root,
         #nai-ext-panel {
             --ekp-font-mono: "IBM Plex Mono", "JetBrains Mono", "Menlo", "Consolas", monospace;
             --ekp-font-sans: "IBM Plex Sans", "Inter", system-ui, -apple-system, sans-serif;
@@ -116,16 +128,16 @@
             --ekp-bg-base:      #0E0E10;
             --ekp-bg-surface:   #16161A;
             --ekp-bg-elevated:  #1E1E24;
-            --ekp-bg-input:     #0A0A0C;
-            --ekp-bg-hover:     #22222A;
-            --ekp-bg-active:    #2A2A33;
+          --ekp-bg-input:     #101015;
+          --ekp-bg-hover:     #262630;
+          --ekp-bg-active:    #30303A;
 
-            --ekp-border:        #2A2A30;
-            --ekp-border-strong: #3A3A42;
+          --ekp-border:        #32323A;
+          --ekp-border-strong: #464650;
 
             --ekp-fg-primary:    #EDEDF0;
-            --ekp-fg-muted:      #9A9AA3;
-            --ekp-fg-subtle:     #6A6A73;
+          --ekp-fg-muted:      #B3B3BD;
+          --ekp-fg-subtle:     #8A8A95;
             --ekp-fg-inverse:    #0E0E10;
 
             --ekp-accent:        #5FBFA8;
@@ -158,21 +170,45 @@
             right: 20px;
             width: 360px;
             max-height: calc(100vh - 90px);
-            background: var(--ekp-bg-surface);
+          background: linear-gradient(180deg, rgba(30, 30, 36, 0.97) 0%, rgba(22, 22, 26, 0.99) 100%);
             border: 1px solid var(--ekp-border);
             border-radius: var(--ekp-radius-md);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+          box-shadow: 0 22px 44px rgba(0, 0, 0, 0.52);
             font-family: var(--ekp-font-mono);
             font-size: 13px;
             color: var(--ekp-fg-primary);
             z-index: 10000;
             overflow: hidden;
-            transition: all var(--ekp-duration-slow) var(--ekp-easing);
+          contain: layout paint style;
+          backdrop-filter: blur(10px);
+          transform: translate3d(0, 0, 0);
+          transition: width var(--ekp-duration-slow) var(--ekp-easing),
+                max-height var(--ekp-duration-slow) var(--ekp-easing),
+                box-shadow var(--ekp-duration-slow) var(--ekp-easing),
+                border-color var(--ekp-duration-base) var(--ekp-easing),
+                opacity var(--ekp-duration-base) var(--ekp-easing),
+                transform var(--ekp-duration-base) var(--ekp-easing);
+        }
+
+        #nai-ext-panel.no-motion,
+        #nai-ext-panel.dragging {
+          transition: none !important;
+        }
+
+        #nai-ext-panel.dragging {
+          box-shadow: 0 28px 52px rgba(0, 0, 0, 0.58);
+          will-change: transform;
+        }
+
+        #nai-ext-panel.is-closing {
+          opacity: 0;
+          pointer-events: none;
+          transform: translate3d(0, 8px, 0) scale(0.985);
         }
 
         #nai-ext-panel.minimized {
-            width: 180px;
-            max-height: 42px;
+          width: 232px;
+          max-height: 56px;
         }
 
         #nai-ext-panel.minimized .nai-ext-body {
@@ -188,16 +224,15 @@
         }
 
         #nai-ext-panel.minimized #nai-ext-maximize {
-            display: inline-block;
+          display: inline-flex;
         }
 
-        #nai-ext-panel.minimized .nai-ext-title span:not(.nai-ext-title-icon) {
+        #nai-ext-panel.minimized .nai-ext-title-wordmark {
             display: none;
         }
 
         #nai-ext-panel.minimized .nai-ext-header {
-            cursor: pointer;
-            padding: 8px 10px;
+          cursor: grab;
         }
 
         /* ============ HEADER ============ */
@@ -205,50 +240,183 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 10px 14px;
-            background: var(--ekp-bg-base);
-            border-bottom: 1px solid var(--ekp-border);
-            cursor: move;
+          gap: 12px;
+          padding: 10px 12px 10px 14px;
+          background: linear-gradient(180deg, rgba(14, 14, 16, 0.98) 0%, rgba(18, 18, 22, 0.98) 100%);
+          border-bottom: 1px solid var(--ekp-border-strong);
+          cursor: grab;
             user-select: none;
+          touch-action: none;
+        }
+
+        #nai-ext-panel.dragging .nai-ext-header {
+          cursor: grabbing;
         }
 
         .nai-ext-title {
             display: flex;
             align-items: center;
             gap: 8px;
-            font-weight: 500;
-            font-size: 13px;
-            color: var(--ekp-fg-primary);
-            letter-spacing: 0;
-            font-family: var(--ekp-font-mono);
+          flex: 1;
+          min-width: 0;
         }
 
         .nai-ext-title-icon {
-            color: var(--ekp-accent);
-            font-size: 14px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 18px;
+          height: 18px;
+          flex-shrink: 0;
+        }
+
+        .nai-ext-brand-mark {
+          width: 100%;
+          height: 100%;
+          display: block;
+        }
+
+        .nai-ext-title-wordmark {
+          font-family: var(--ekp-font-sans);
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--ekp-fg-primary);
+          letter-spacing: 0.2px;
+          white-space: nowrap;
+        }
+
+        .nai-ext-version-badge {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 3px 7px;
+          border-radius: var(--ekp-radius-pill);
+          border: 1px solid rgba(95, 191, 168, 0.28);
+          background: rgba(95, 191, 168, 0.14);
+          color: var(--ekp-fg-primary);
+          font-family: var(--ekp-font-mono);
+          font-size: 10px;
+          line-height: 1;
+          letter-spacing: 0.2px;
+          flex-shrink: 0;
         }
 
         .nai-ext-controls {
             display: flex;
-            gap: 4px;
+          align-items: center;
+          gap: 6px;
+          flex-shrink: 0;
         }
 
         .nai-ext-btn-icon {
-            background: transparent;
-            border: none;
-            color: var(--ekp-fg-subtle);
+          width: 28px;
+          height: 28px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px solid transparent;
+          color: var(--ekp-fg-muted);
             cursor: pointer;
-            padding: 4px 6px;
-            border-radius: var(--ekp-radius-sm);
+          padding: 0;
+          border-radius: 6px;
             transition: background var(--ekp-duration-fast) var(--ekp-easing),
-                        color var(--ekp-duration-fast) var(--ekp-easing);
-            font-size: 14px;
+                border-color var(--ekp-duration-fast) var(--ekp-easing),
+                color var(--ekp-duration-fast) var(--ekp-easing),
+                transform var(--ekp-duration-fast) var(--ekp-easing);
+          font-size: 13px;
             line-height: 1;
+        }
+
+        .nai-ext-btn-icon svg {
+          width: 14px;
+          height: 14px;
+          stroke: currentColor;
+          fill: none;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+          stroke-width: 1.8;
+          pointer-events: none;
+        }
+
+        .nai-ext-btn-icon-help {
+          font-family: var(--ekp-font-sans);
+          font-weight: 600;
+          color: var(--ekp-fg-primary);
         }
 
         .nai-ext-btn-icon:hover {
             background: var(--ekp-bg-hover);
+          border-color: var(--ekp-border-strong);
             color: var(--ekp-fg-primary);
+          transform: translateY(-1px);
+        }
+
+        .nai-ext-btn-icon:focus-visible {
+          outline: none;
+          border-color: rgba(95, 191, 168, 0.38);
+          box-shadow: var(--ekp-focus-ring);
+        }
+
+        .nai-ext-btn-icon.danger:hover {
+          background: rgba(224, 123, 123, 0.14);
+          border-color: rgba(224, 123, 123, 0.3);
+          color: var(--ekp-error);
+        }
+
+        #nai-ext-reopen {
+          position: fixed;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 12px 8px 8px;
+          background: rgba(22, 22, 26, 0.94);
+          border: 1px solid var(--ekp-border-strong);
+          border-radius: var(--ekp-radius-pill);
+          box-shadow: 0 14px 28px rgba(0, 0, 0, 0.45);
+          color: var(--ekp-fg-primary);
+          cursor: pointer;
+          z-index: 10000;
+          opacity: 0;
+          transform: translateY(8px) scale(0.96);
+          transition: opacity var(--ekp-duration-base) var(--ekp-easing),
+                transform var(--ekp-duration-base) var(--ekp-easing),
+                background var(--ekp-duration-fast) var(--ekp-easing),
+                border-color var(--ekp-duration-fast) var(--ekp-easing);
+          backdrop-filter: blur(10px);
+        }
+
+        #nai-ext-reopen.visible {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+
+        #nai-ext-reopen:hover {
+          background: rgba(30, 30, 36, 0.98);
+          border-color: rgba(95, 191, 168, 0.38);
+        }
+
+        #nai-ext-reopen:focus-visible {
+          outline: none;
+          box-shadow: var(--ekp-focus-ring), 0 14px 28px rgba(0, 0, 0, 0.45);
+        }
+
+        .nai-ext-reopen-icon {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 22px;
+          height: 22px;
+          flex-shrink: 0;
+        }
+
+        .nai-ext-reopen-label {
+          font-family: var(--ekp-font-sans);
+          font-size: 11px;
+          font-weight: 600;
+          color: var(--ekp-fg-muted);
+          letter-spacing: 0.2px;
+          white-space: nowrap;
         }
 
         /* ============ BODY ============ */
@@ -257,6 +425,8 @@
             overflow-y: auto;
             max-height: calc(100vh - 130px);
             background: var(--ekp-bg-surface);
+          overscroll-behavior: contain;
+          scrollbar-gutter: stable;
         }
 
         /* ============ SECTIONS ============ */
@@ -826,7 +996,7 @@
         }
 
         .nai-ext-section-header.collapsible::after {
-            content: '−';
+            content: '▾';
             margin-left: auto;
             font-size: 12px;
             color: var(--ekp-fg-subtle);
@@ -834,7 +1004,7 @@
         }
 
         .nai-ext-section.collapsed .nai-ext-section-header.collapsible::after {
-            content: '+';
+            content: '▸';
         }
 
         .nai-ext-section.collapsed .nai-ext-section-content {
@@ -936,6 +1106,18 @@
             color: var(--ekp-fg-subtle);
             margin-left: 6px;
             text-transform: lowercase;
+        }
+
+        /* ============ NEGATIVE BADGE ============ */
+        .nai-ext-neg-badge {
+            font-size: 9px;
+            font-weight: 600;
+            padding: 1px 5px;
+            background: rgba(224, 123, 123, 0.15);
+            color: var(--ekp-error);
+            border: 1px solid rgba(224, 123, 123, 0.4);
+            border-radius: 2px;
+            flex-shrink: 0;
         }
 
         /* ============ CHECKBOX ============ */
@@ -1431,70 +1613,184 @@
 
         /* ============ HELP MODAL ============ */
         #nai-ext-help-modal {
-            display: none;
             position: absolute;
             top: 0;
             left: 0;
             right: 0;
             bottom: 0;
-            background: var(--ekp-bg-surface);
+          background: linear-gradient(180deg, rgba(30, 30, 36, 0.98) 0%, rgba(22, 22, 26, 0.995) 100%);
             z-index: 20;
             overflow-y: auto;
-            padding: 12px;
+          padding: 14px;
+          opacity: 0;
+          visibility: hidden;
+          pointer-events: none;
+          transform: translateY(10px);
+          transition: opacity var(--ekp-duration-base) var(--ekp-easing),
+                transform var(--ekp-duration-base) var(--ekp-easing),
+                visibility 0s linear var(--ekp-duration-base);
         }
 
         #nai-ext-help-modal.open {
-            display: block;
+          opacity: 1;
+          visibility: visible;
+          pointer-events: auto;
+          transform: translateY(0);
+          transition-delay: 0s;
         }
 
         .nai-ext-help-close {
-            float: right;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
             background: var(--ekp-bg-elevated);
             color: var(--ekp-fg-primary);
-            border: 1px solid var(--ekp-border);
-            border-radius: var(--ekp-radius-sm);
-            padding: 3px 8px;
+          border: 1px solid var(--ekp-border-strong);
+          border-radius: 6px;
+          padding: 5px 10px;
             cursor: pointer;
             font-size: 11px;
-            font-family: var(--ekp-font-mono);
-            transition: background var(--ekp-duration-fast) var(--ekp-easing);
+          font-family: var(--ekp-font-sans);
+          font-weight: 600;
+          transition: background var(--ekp-duration-fast) var(--ekp-easing),
+                border-color var(--ekp-duration-fast) var(--ekp-easing),
+                color var(--ekp-duration-fast) var(--ekp-easing);
+        }
+
+        .nai-ext-help-close svg {
+          width: 12px;
+          height: 12px;
+          stroke: currentColor;
+          fill: none;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+          stroke-width: 1.9;
         }
 
         .nai-ext-help-close:hover {
             background: var(--ekp-bg-hover);
+          border-color: var(--ekp-border-strong);
+        }
+
+        .nai-ext-help-topbar {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 12px;
+          margin-bottom: 14px;
+        }
+
+        .nai-ext-help-lockup {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .nai-ext-help-brand-icon {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 28px;
+          height: 28px;
+          flex-shrink: 0;
+        }
+
+        .nai-ext-help-eyebrow {
+          font-size: 10px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 1.2px;
+          color: var(--ekp-fg-subtle);
+          margin-bottom: 2px;
+        }
+
+        .nai-ext-help-heading {
+          font-family: var(--ekp-font-sans);
+          font-size: 18px;
+          font-weight: 600;
+          letter-spacing: 0.2px;
+          color: var(--ekp-fg-primary);
+        }
+
+        .nai-ext-help-about {
+          margin-bottom: 16px;
+          padding: 12px 14px;
+          border: 1px solid var(--ekp-border-strong);
+          border-radius: var(--ekp-radius-lg);
+          background: linear-gradient(180deg, rgba(95, 191, 168, 0.08) 0%, rgba(95, 191, 168, 0.03) 100%);
+        }
+
+        .nai-ext-help-about-copy {
+          font-family: var(--ekp-font-sans);
+          font-size: 12px;
+          line-height: 1.6;
+          color: var(--ekp-fg-muted);
+          margin-bottom: 8px;
+        }
+
+        .nai-ext-help-about-copy:last-of-type {
+          margin-bottom: 0;
+        }
+
+        .nai-ext-help-about-meta {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          margin-top: 10px;
+        }
+
+        .nai-ext-help-chip {
+          display: inline-flex;
+          align-items: center;
+          padding: 4px 8px;
+          border-radius: var(--ekp-radius-pill);
+          border: 1px solid rgba(95, 191, 168, 0.18);
+          background: rgba(255, 255, 255, 0.03);
+          color: var(--ekp-fg-primary);
+          font-size: 10px;
+          letter-spacing: 0.2px;
         }
 
         .nai-ext-help-section {
             margin-bottom: 14px;
+          padding: 10px 12px;
+          border: 1px solid var(--ekp-border);
+          border-radius: var(--ekp-radius-md);
+          background: rgba(255, 255, 255, 0.02);
         }
 
         .nai-ext-help-title {
-            font-size: 10px;
-            font-weight: 500;
+          font-size: 11px;
+          font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 1px;
-            border-bottom: 1px solid var(--ekp-border);
-            padding-bottom: 4px;
+          border-bottom: 1px solid var(--ekp-border-strong);
+          padding-bottom: 6px;
             margin-bottom: 8px;
-            color: var(--ekp-fg-muted);
+          color: var(--ekp-fg-primary);
         }
 
         .nai-ext-help-row {
             display: flex;
             gap: 8px;
             font-size: 11px;
-            margin-bottom: 3px;
+          margin-bottom: 6px;
             align-items: baseline;
-            color: var(--ekp-fg-muted);
+          color: var(--ekp-fg-primary);
+        }
+
+        .nai-ext-help-row > span:last-child {
+          color: var(--ekp-fg-muted);
+          line-height: 1.5;
         }
 
         .nai-ext-help-syntax {
             font-family: var(--ekp-font-mono);
             font-size: 10px;
             background: var(--ekp-bg-input);
-            padding: 1px 5px;
+          padding: 2px 6px;
             flex-shrink: 0;
-            border: 1px solid var(--ekp-border);
+          border: 1px solid var(--ekp-border-strong);
             border-radius: var(--ekp-radius-sm);
             color: var(--ekp-accent);
         }
@@ -1505,17 +1801,19 @@
             background: var(--ekp-bg-input);
             border: 1px solid var(--ekp-border);
             border-radius: var(--ekp-radius-sm);
-            padding: 5px 7px;
+            padding: 6px 8px;
             display: block;
             margin: 5px 0;
             word-break: break-all;
             color: var(--ekp-fg-primary);
+            line-height: 1.55;
         }
 
         .nai-ext-help-note {
             font-size: 10px;
-            color: var(--ekp-fg-subtle);
-            margin-top: 4px;
+            color: var(--ekp-fg-muted);
+            margin-top: 6px;
+            line-height: 1.55;
         }
 
         /* ============ BATCH IMPORT MODAL ============ */
@@ -1628,6 +1926,7 @@
     settings: {
       delayBetweenGenerations: 2000,
       autoStartQueue: false,
+      panelMinimized: false,
       freeSafeMode: false,
       randomizerEnabled: false,
       currentModel: "v45_full",
@@ -1653,6 +1952,8 @@
     completedRunMs: 0,
     tickerId: null,
   };
+
+  let panelCloseTimerId = 0;
 
   // ============================================
   // STORAGE
@@ -2291,6 +2592,7 @@
 
   function buildSettingsDocumentFromLegacySettings(legacySettings = {}) {
     const settingsDoc = createDefaultSettingsDocument();
+    settingsDoc.ui.panelMinimized = !!legacySettings.panelMinimized;
     settingsDoc.queue.delayMs = Number.isFinite(legacySettings.delayBetweenGenerations)
       ? legacySettings.delayBetweenGenerations
       : CONFIG.DEFAULT_DELAY;
@@ -2315,6 +2617,7 @@
 
   function buildSettingsDocument() {
     const settingsDoc = createDefaultSettingsDocument();
+    settingsDoc.ui.panelMinimized = !!state.settings.panelMinimized;
     settingsDoc.queue.delayMs = state.settings.delayBetweenGenerations;
     settingsDoc.model.preferred = modelKeyToSchemaValue(state.settings.currentModel);
     settingsDoc.anlas.opusFreePlan = !!state.settings.opusPlan;
@@ -2340,6 +2643,7 @@
         ? source.queue.delayMs
         : CONFIG.DEFAULT_DELAY,
       autoStartQueue: !!source.studio?.autoStartQueue,
+      panelMinimized: !!source.ui?.panelMinimized,
       freeSafeMode: !!source.studio?.freeSafeMode,
       randomizerEnabled:
         typeof source.studio?.randomizerEnabled === "boolean"
@@ -3150,23 +3454,23 @@
     panel.innerHTML = `
             <div class="nai-ext-header">
                 <div class="nai-ext-title">
-                    <span class="nai-ext-title-icon">🎨</span>
-                    <span>Ekphrasis</span>
-                    <span style="font-size:10px;background:#16a34a;padding:2px 5px;border-radius:2px;text-transform:none;letter-spacing:0;">v4</span>
+            <span class="nai-ext-title-icon">${PANEL_ICONS.brand}</span>
+            <span class="nai-ext-title-wordmark">Ekphrasis</span>
+            <span class="nai-ext-version-badge">v${CONFIG.VERSION}</span>
                 </div>
                 <div class="nai-ext-controls">
-                    <button class="nai-ext-btn-icon" id="nai-ext-help" title="Help / Guide">?</button>
-                    <button class="nai-ext-btn-icon" id="nai-ext-minimize" title="Minimize">−</button>
-                    <button class="nai-ext-btn-icon" id="nai-ext-maximize" title="Restore">□</button>
-                    <button class="nai-ext-btn-icon" id="nai-ext-close" title="Close">×</button>
+            <button class="nai-ext-btn-icon nai-ext-btn-icon-help" id="nai-ext-help" title="Help / About" aria-label="Help and about"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.5-1 2-2.5 3"/><circle cx="12" cy="17" r="0.6" fill="currentColor"/></svg></button>
+            <button class="nai-ext-btn-icon" id="nai-ext-minimize" title="Minimize panel" aria-label="Minimize panel">${PANEL_ICONS.minimize}</button>
+            <button class="nai-ext-btn-icon" id="nai-ext-maximize" title="Restore panel" aria-label="Restore panel">${PANEL_ICONS.restore}</button>
+            <button class="nai-ext-btn-icon danger" id="nai-ext-close" title="Close panel" aria-label="Close panel">${PANEL_ICONS.close}</button>
                 </div>
             </div>
 
             <!-- Batch Raw Import Modal -->
             <div id="nai-ext-batch-modal">
                 <div style="display:flex;align-items:center;justify-content:space-between;">
-                    <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">📋 Batch Raw Import</span>
-                    <button class="nai-ext-help-close" id="nai-ext-batch-close">× Close</button>
+                    <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Batch Raw Import</span>
+                <button class="nai-ext-help-close" id="nai-ext-batch-close" title="Close batch import">${PANEL_ICONS.close}<span>Close</span></button>
                 </div>
                 <div class="nai-ext-batch-hint">Paste raw prompts below. Separate each prompt with <code style="background:var(--ekp-bg-elevated);padding:1px 4px;border:1px solid var(--ekp-border);border-radius:3px;color:var(--ekp-accent);">---</code> on its own line. Each block = 1 item in queue.</div>
                 <textarea id="nai-ext-batch-textarea" placeholder="a cute fox, masterpiece, very aesthetic&#10;---&#10;wolf in forest, best quality, absurdres&#10;---&#10;dragon, cinematic lighting, detailed"></textarea>
@@ -3181,11 +3485,31 @@
 
             <!-- Help / Guide Modal -->
             <div id="nai-ext-help-modal">
-                <button class="nai-ext-help-close" id="nai-ext-help-close">× Close</button>
-                <div style="clear:both; margin-bottom:10px;"></div>
+              <div class="nai-ext-help-topbar">
+                <div class="nai-ext-help-lockup">
+                  <span class="nai-ext-help-brand-icon">${PANEL_ICONS.brand}</span>
+                  <div>
+                    <div class="nai-ext-help-eyebrow">Help / About</div>
+                    <div class="nai-ext-help-heading">Ekphrasis</div>
+                  </div>
+                </div>
+                <button class="nai-ext-help-close" id="nai-ext-help-close" title="Close help">${PANEL_ICONS.close}<span>Close</span></button>
+              </div>
+
+              <div class="nai-ext-help-about">
+                <p class="nai-ext-help-about-copy">Prompt studio for NovelAI that keeps templates, placeholders, composition presets, and batch queue controls directly inside the image page.</p>
+                <p class="nai-ext-help-about-copy">Designed for prompt-as-craft workflows: dense, restrained, and fast enough to stay out of the way while you iterate.</p>
+                <p class="nai-ext-help-about-copy">Library, settings, and session state stay local in Tampermonkey storage, so your presets and queue progress survive reloads.</p>
+                <div class="nai-ext-help-about-meta">
+                  <span class="nai-ext-help-chip">Version v${CONFIG.VERSION}</span>
+                  <span class="nai-ext-help-chip">Tampermonkey userscript</span>
+                  <span class="nai-ext-help-chip">NovelAI /image</span>
+                  <span class="nai-ext-help-chip">Local-first storage</span>
+                </div>
+              </div>
 
                 <div class="nai-ext-help-section">
-                    <div class="nai-ext-help-title">⚖️ Weight Syntax</div>
+                    <div class="nai-ext-help-title">Weight Syntax</div>
                     <div class="nai-ext-help-row"><span class="nai-ext-help-syntax">3::tag::</span><span>Numerical emphasis — equivalent to {{{tag}}} (V4+)</span></div>
                     <div class="nai-ext-help-row"><span class="nai-ext-help-syntax">-1::tag::</span><span>Negative emphasis — suppresses the tag (V4.5 only)</span></div>
                     <div class="nai-ext-help-row"><span class="nai-ext-help-syntax">{tag}</span><span>Boost ×1.05 — stack braces for stronger effect</span></div>
@@ -3195,7 +3519,7 @@
                 </div>
 
                 <div class="nai-ext-help-section">
-                    <div class="nai-ext-help-title">🎲 Randomizer Syntax</div>
+                    <div class="nai-ext-help-title">Randomizer Syntax</div>
                     <div class="nai-ext-help-row"><span class="nai-ext-help-syntax">||a|b|c||</span><span>Apply+ picks one randomly; Queue expands all variants</span></div>
                     <div class="nai-ext-help-row"><span class="nai-ext-help-syntax">||a|b|| ||c|d||</span><span>Multiple groups — each resolved independently</span></div>
                     <code class="nai-ext-help-code">||red|blue|green|| hair, ||smiling|neutral|| expression</code>
@@ -3203,7 +3527,7 @@
                 </div>
 
                 <div class="nai-ext-help-section">
-                    <div class="nai-ext-help-title">🏷️ Placeholder Syntax</div>
+                    <div class="nai-ext-help-title">Placeholder Syntax</div>
                     <div class="nai-ext-help-row"><span class="nai-ext-help-syntax">{artist}</span><span>Substituted with the selected value from the Artist tab</span></div>
                     <div class="nai-ext-help-row"><span class="nai-ext-help-syntax">{character}</span><span>Works for any placeholder tab name you create</span></div>
                     <code class="nai-ext-help-code">{artist}, {character}, long hair, masterpiece</code>
@@ -3215,8 +3539,7 @@
                 <!-- Templates Section -->
                 <div class="nai-ext-section" id="nai-ext-templates-section">
                     <div class="nai-ext-section-header collapsible">
-                        <span class="nai-ext-section-icon">📝</span>
-                        <span>TEMPLATES</span>
+                        TEMPLATES
                     </div>
                     <div class="nai-ext-section-content">
                         <!-- Mode tabs: Positive / Negative -->
@@ -3253,8 +3576,7 @@
                 <!-- Placeholders Section -->
                 <div class="nai-ext-section" id="nai-ext-placeholders-section">
                     <div class="nai-ext-section-header collapsible">
-                        <span class="nai-ext-section-icon">🏷️</span>
-                        <span>PLACEHOLDERS</span>
+                        PLACEHOLDERS
                     </div>
                     <div class="nai-ext-section-content">
                         <!-- Tab selector -->
@@ -3280,7 +3602,7 @@
                         <div class="nai-ext-btn-row" style="margin-bottom: 8px;">
                             <button class="nai-ext-btn secondary" id="nai-ext-select-all" style="flex:1; font-size: 10px;">✓ All</button>
                             <button class="nai-ext-btn secondary" id="nai-ext-deselect-all" style="flex:1; font-size: 10px;">✗ None</button>
-                            <button class="nai-ext-btn danger" id="nai-ext-delete-selected" style="flex:1; font-size: 10px; display:none;">🗑 Del</button>
+                            <button class="nai-ext-btn danger" id="nai-ext-delete-selected" style="flex:1; font-size: 10px; display:none;">Delete</button>
                         </div>
 
                         <!-- Input mode selector -->
@@ -3327,7 +3649,7 @@
                     <div id="nai-ext-preview-negative" title="Linked negative prompt preview" style="display:none;"></div>
                     </div>
                     <div class="nai-ext-footer-bar" id="nai-ext-apply-bar">
-                        <span style="font-size:11px;flex-shrink:0;">⚡</span>
+                        <span style="flex-shrink:0;color:var(--ekp-accent);display:inline-flex;align-items:center;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>
                     <span class="nai-ext-footer-preview-text" id="nai-ext-footer-preview-text" title="Inline preview of the resolved prompt">No template selected</span>
                     <button class="nai-ext-footer-apply-btn" id="nai-ext-apply-prompt" disabled title="Apply the resolved positive prompt to NovelAI">Apply+</button>
                     <button class="nai-ext-footer-apply-btn secondary" id="nai-ext-apply-both" disabled title="Apply the positive prompt and its linked negative prompt">Pos+Neg</button>
@@ -3360,9 +3682,9 @@
                           <button class="nai-ext-footer-queue-btn" id="nai-ext-resume-queue" disabled style="display:none;" title="Resume queue processing">▶</button>
                           <button class="nai-ext-footer-queue-btn" id="nai-ext-pause-queue" disabled title="Pause the running queue">⏸</button>
                           <button class="nai-ext-footer-queue-btn" id="nai-ext-stop-queue" disabled title="Stop the running queue">⏹</button>
-                          <button class="nai-ext-footer-queue-btn" id="nai-ext-clear-queue" disabled title="Clear every queued item">🗑</button>
+                          <button class="nai-ext-footer-queue-btn" id="nai-ext-clear-queue" disabled title="Clear every queued item"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>
                         <button class="nai-ext-footer-queue-btn" id="nai-ext-retry-failed" disabled style="display:none;" title="Retry failed items">↺</button>
-                        <button class="nai-ext-footer-queue-btn" id="nai-ext-batch-import" title="Batch raw import">📋</button>
+                        <button class="nai-ext-footer-queue-btn" id="nai-ext-batch-import" title="Batch raw import"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
                         <button class="nai-ext-footer-toggle" id="nai-ext-queue-toggle" title="Expand queue"></button>
                     </div>
                 </div>
@@ -3370,14 +3692,14 @@
                 <!-- Strip 3: Settings (inline, no expand panel) -->
                 <div class="nai-ext-footer-strip" id="nai-ext-settings-strip">
                     <div class="nai-ext-footer-bar" id="nai-ext-settings-bar">
-                        <span style="font-size:11px;flex-shrink:0;">⚙️</span>
+                        <span style="flex-shrink:0;color:var(--ekp-fg-subtle);display:inline-flex;align-items:center;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></span>
                         <span class="nai-ext-footer-label">Delay</span>
                       <input type="number" class="nai-ext-footer-number-input" id="nai-ext-delay" value="2000" min="500" max="30000" step="500" title="Delay between queue generations in milliseconds">
                         <span class="nai-ext-footer-label">ms</span>
                       <button class="nai-ext-footer-icon-btn" id="nai-ext-free-safe-toggle" title="FREE OFF: leave the current steps value unchanged">FREE OFF</button>
                       <button class="nai-ext-footer-icon-btn" id="nai-ext-randomizer-toggle" title="RAND OFF: keep randomizer blocks unresolved until enabled">RAND OFF</button>
-                        <button class="nai-ext-footer-icon-btn" id="nai-ext-export" title="Export config">📥</button>
-                        <button class="nai-ext-footer-icon-btn" id="nai-ext-import" title="Import config">📤</button>
+                        <button class="nai-ext-footer-icon-btn" id="nai-ext-export" title="Export config"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
+                        <button class="nai-ext-footer-icon-btn" id="nai-ext-import" title="Import config"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></button>
                         <input type="file" id="nai-ext-import-file" accept=".json" style="display:none;">
                     </div>
                 </div>
@@ -3397,7 +3719,7 @@
                         <button class="nai-ext-btn nai-ext-btn-full" id="nai-ext-insert-quality-tags" title="Append quality tags to current NAI prompt">+ Insert Quality Tags</button>
                     </div>
                     <div class="nai-ext-footer-bar" id="nai-ext-quality-bar">
-                        <span style="font-size:11px;flex-shrink:0;">🏷️</span>
+                        <span style="flex-shrink:0;color:var(--ekp-accent);display:inline-flex;align-items:center;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></span>
                         <span id="nai-ext-quality-model-label" style="font-size:10px;color:var(--ekp-fg-muted);flex:1;">V4.5 Full</span>
                         <span id="nai-ext-token-count" class="ok" title="Approximate T5 token count of current NAI prompt (~512 limit for V4+)">~0/512</span>
                         <button class="nai-ext-footer-toggle" id="nai-ext-quality-toggle" title="Quality tags &amp; token counter"></button>
@@ -3439,7 +3761,7 @@
                         <div id="nai-ext-anlas-breakdown" style="font-size:10px;color:var(--ekp-fg-muted);margin-top:6px;padding-top:5px;border-top:1px solid var(--ekp-border);font-family:var(--ekp-font-mono);line-height:1.7;"></div>
                     </div>
                     <div class="nai-ext-footer-bar" id="nai-ext-anlas-bar">
-                        <span style="font-size:11px;flex-shrink:0;">💎</span>
+                        <span style="flex-shrink:0;color:var(--ekp-accent);display:inline-flex;align-items:center;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/></svg></span>
                         <span style="font-size:10px;color:var(--ekp-fg-muted);flex:1;" id="nai-ext-anlas-bar-label">Anlas / image</span>
                         <span id="nai-ext-anlas-cost" class="free" title="Estimated Anlas cost per generation">0 Anlas</span>
                         <button class="nai-ext-footer-toggle" id="nai-ext-anlas-toggle" title="Anlas cost calculator"></button>
@@ -3594,7 +3916,7 @@
           ? `<span class="nai-ext-template-category">${category}</span>`
           : "";
         const negBadge = hasValidNeg
-          ? `<span title="Linked to negative template" style="font-size:9px;background:#dc2626;color:#fff;padding:1px 4px;margin-right:2px;font-weight:700;">N</span>`
+          ? `<span class="nai-ext-neg-badge" title="Linked to negative template">N</span>`
           : "";
         const isSelected = state.selectedTemplates.includes(actualIndex);
 
@@ -4944,54 +5266,142 @@
   // ============================================
   // EVENT HANDLERS
   // ============================================
+  function clampNumber(value, min, max) {
+    if (!Number.isFinite(value)) return min;
+    if (max < min) return min;
+    return Math.min(Math.max(value, min), max);
+  }
+
+  function closeTransientPanels() {
+    document.getElementById("nai-ext-help-modal")?.classList.remove("open");
+    document.getElementById("nai-ext-batch-modal")?.classList.remove("open");
+  }
+
+  function setPanelMinimized(minimized, options = {}) {
+    const { persist = true, immediate = false } = options;
+    const panel = document.getElementById("nai-ext-panel");
+    if (!panel) return;
+
+    const nextValue = !!minimized;
+    if (nextValue) closeTransientPanels();
+
+    if (immediate) {
+      panel.classList.add("no-motion");
+    }
+
+    panel.classList.toggle("minimized", nextValue);
+    panel.dataset.windowState = nextValue ? "minimized" : "open";
+
+    if (immediate) {
+      requestAnimationFrame(() => {
+        panel.classList.remove("no-motion");
+      });
+    }
+
+    const wasChanged = state.settings.panelMinimized !== nextValue;
+    state.settings.panelMinimized = nextValue;
+    if (persist && wasChanged) {
+      saveSettings();
+    }
+  }
+
+  function positionReopenButton(button, anchorRect) {
+    const buttonWidth = button.offsetWidth || 120;
+    const buttonHeight = button.offsetHeight || 40;
+    const maxLeft = Math.max(
+      PANEL_EDGE_MARGIN_PX,
+      window.innerWidth - buttonWidth - PANEL_EDGE_MARGIN_PX,
+    );
+    const maxTop = Math.max(
+      PANEL_EDGE_MARGIN_PX,
+      window.innerHeight - buttonHeight - PANEL_EDGE_MARGIN_PX,
+    );
+
+    button.style.left = `${clampNumber(anchorRect.left, PANEL_EDGE_MARGIN_PX, maxLeft)}px`;
+    button.style.top = `${clampNumber(anchorRect.top, PANEL_EDGE_MARGIN_PX, maxTop)}px`;
+    button.style.right = "auto";
+    button.style.bottom = "auto";
+  }
+
+  function reopenPanel() {
+    const panel = document.getElementById("nai-ext-panel");
+    const reopenBtn = document.getElementById("nai-ext-reopen");
+    if (!panel) return;
+
+    window.clearTimeout(panelCloseTimerId);
+    panelCloseTimerId = 0;
+
+    panel.style.display = "";
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        panel.classList.remove("is-closing");
+      });
+    });
+
+    if (reopenBtn) {
+      reopenBtn.classList.remove("visible");
+      window.setTimeout(() => {
+        reopenBtn.remove();
+      }, 140);
+    }
+  }
+
+  function ensurePanelReopenButton(anchorRect) {
+    let reopenBtn = document.getElementById("nai-ext-reopen");
+    if (!reopenBtn) {
+      reopenBtn = document.createElement("button");
+      reopenBtn.id = "nai-ext-reopen";
+      reopenBtn.type = "button";
+      reopenBtn.title = "Reopen Ekphrasis";
+      reopenBtn.innerHTML = `
+        <span class="nai-ext-reopen-icon">${PANEL_ICONS.brand}</span>
+        <span class="nai-ext-reopen-label">Ekphrasis</span>
+      `;
+      reopenBtn.addEventListener("click", reopenPanel);
+      document.body.appendChild(reopenBtn);
+    }
+
+    positionReopenButton(reopenBtn, anchorRect);
+    requestAnimationFrame(() => {
+      reopenBtn.classList.add("visible");
+    });
+    return reopenBtn;
+  }
+
+  function closePanel() {
+    const panel = document.getElementById("nai-ext-panel");
+    if (!panel || panel.style.display === "none") return;
+
+    closeTransientPanels();
+    ensurePanelReopenButton(panel.getBoundingClientRect());
+    panel.classList.add("is-closing");
+
+    window.clearTimeout(panelCloseTimerId);
+    panelCloseTimerId = window.setTimeout(() => {
+      panel.style.display = "none";
+      panelCloseTimerId = 0;
+    }, PANEL_CLOSE_ANIMATION_MS);
+  }
+
   function setupEventHandlers() {
     // Minimize button
     document
       .getElementById("nai-ext-minimize")
       ?.addEventListener("click", () => {
-        document.getElementById("nai-ext-panel")?.classList.add("minimized");
+        setPanelMinimized(true);
       });
 
     // Maximize button
     document
       .getElementById("nai-ext-maximize")
       ?.addEventListener("click", () => {
-        document.getElementById("nai-ext-panel")?.classList.remove("minimized");
+        setPanelMinimized(false);
       });
 
     // Restore only via the □ button — no header-click restore (prevents accidental restore after drag)
 
     // Close button
-    document.getElementById("nai-ext-close")?.addEventListener("click", () => {
-      const panel = document.getElementById("nai-ext-panel");
-      if (panel) panel.style.display = "none";
-
-      if (!document.getElementById("nai-ext-reopen")) {
-        const reopenBtn = document.createElement("button");
-        reopenBtn.id = "nai-ext-reopen";
-        reopenBtn.textContent = "NAI";
-        reopenBtn.style.cssText = `
-                    position: fixed;
-                    top: 80px;
-                    right: 20px;
-                    padding: 6px 12px;
-                    background: var(--ekp-bg-surface);
-                    border: 1px solid var(--ekp-border);
-                    border-radius: 5px;
-                    color: var(--ekp-accent);
-                    font-size: 11px;
-                    font-weight: 500;
-                    cursor: pointer;
-                    z-index: 10000;
-                    font-family: "IBM Plex Mono", monospace;
-                `;
-        reopenBtn.addEventListener("click", () => {
-          panel.style.display = "";
-          reopenBtn.remove();
-        });
-        document.body.appendChild(reopenBtn);
-      }
-    });
+    document.getElementById("nai-ext-close")?.addEventListener("click", closePanel);
 
     // Collapsible sections
     document
@@ -5488,6 +5898,7 @@
       const textarea = document.getElementById("nai-ext-batch-textarea");
       const countEl = document.getElementById("nai-ext-batch-count");
       if (!modal) return;
+      document.getElementById("nai-ext-help-modal")?.classList.remove("open");
       textarea.value = "";
       countEl.textContent = "0 prompts detected";
       document.getElementById("nai-ext-batch-confirm").disabled = true;
@@ -5524,10 +5935,26 @@
 
     // Help modal open / close
     document.getElementById("nai-ext-help")?.addEventListener("click", () => {
+      closeBatchModal();
       document.getElementById("nai-ext-help-modal")?.classList.add("open");
     });
     document.getElementById("nai-ext-help-close")?.addEventListener("click", () => {
       document.getElementById("nai-ext-help-modal")?.classList.remove("open");
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") return;
+
+      const helpModal = document.getElementById("nai-ext-help-modal");
+      if (helpModal?.classList.contains("open")) {
+        helpModal.classList.remove("open");
+        return;
+      }
+
+      const batchModal = document.getElementById("nai-ext-batch-modal");
+      if (batchModal?.classList.contains("open")) {
+        closeBatchModal();
+      }
     });
 
     // Model selector buttons (quality strip)
@@ -5954,49 +6381,120 @@
     const header = element.querySelector(".nai-ext-header");
     if (!header) return;
 
+    let isPointerDown = false;
     let isDragging = false;
     let wasDragged = false;
-    let startX, startY, startLeft, startTop;
+    let activePointerId = null;
+    let startX = 0;
+    let startY = 0;
+    let startLeft = 0;
+    let startTop = 0;
+    let pendingLeft = 0;
+    let pendingTop = 0;
+    let dragFrameId = 0;
 
-    header.addEventListener("mousedown", (e) => {
+    header.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
       if (e.target.closest(".nai-ext-btn-icon")) return;
 
-      isDragging = true;
+      const rect = element.getBoundingClientRect();
+      isPointerDown = true;
+      activePointerId = e.pointerId;
       wasDragged = false;
       startX = e.clientX;
       startY = e.clientY;
-      startLeft = element.offsetLeft;
-      startTop = element.offsetTop;
+      startLeft = rect.left;
+      startTop = rect.top;
+      pendingLeft = rect.left;
+      pendingTop = rect.top;
 
-      document.addEventListener("mousemove", onMouseMove);
-      document.addEventListener("mouseup", onMouseUp);
+      header.setPointerCapture?.(e.pointerId);
+      window.addEventListener("pointermove", onPointerMove);
+      window.addEventListener("pointerup", onPointerUp);
+      window.addEventListener("pointercancel", onPointerUp);
+      e.preventDefault();
     });
 
     // Suppress click after drag to prevent accidental button triggers
     header.addEventListener("click", (e) => {
       if (wasDragged) {
+        e.preventDefault();
         e.stopImmediatePropagation();
         wasDragged = false;
       }
     }, true);
 
-    function onMouseMove(e) {
-      if (!isDragging) return;
+    function flushDragFrame() {
+      dragFrameId = 0;
+
+      const maxLeft = Math.max(
+        PANEL_EDGE_MARGIN_PX,
+        window.innerWidth - element.offsetWidth - PANEL_EDGE_MARGIN_PX,
+      );
+      const maxTop = Math.max(
+        PANEL_EDGE_MARGIN_PX,
+        window.innerHeight - element.offsetHeight - PANEL_EDGE_MARGIN_PX,
+      );
+      const clampedLeft = clampNumber(pendingLeft, PANEL_EDGE_MARGIN_PX, maxLeft);
+      const clampedTop = clampNumber(pendingTop, PANEL_EDGE_MARGIN_PX, maxTop);
+
+      element.style.transform = `translate3d(${clampedLeft - startLeft}px, ${clampedTop - startTop}px, 0)`;
+    }
+
+    function onPointerMove(e) {
+      if (!isPointerDown || e.pointerId !== activePointerId) return;
 
       const dx = e.clientX - startX;
       const dy = e.clientY - startY;
 
-      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) wasDragged = true;
+      if (!isDragging && Math.abs(dx) < PANEL_DRAG_THRESHOLD_PX && Math.abs(dy) < PANEL_DRAG_THRESHOLD_PX) {
+        return;
+      }
 
-      element.style.left = `${startLeft + dx}px`;
-      element.style.top = `${startTop + dy}px`;
-      element.style.right = "auto";
+      isDragging = true;
+      wasDragged = true;
+      element.classList.add("dragging");
+      pendingLeft = startLeft + dx;
+      pendingTop = startTop + dy;
+
+      if (!dragFrameId) {
+        dragFrameId = requestAnimationFrame(flushDragFrame);
+      }
     }
 
-    function onMouseUp() {
+    function onPointerUp(e) {
+      if (e.pointerId !== activePointerId) return;
+
+      isPointerDown = false;
+      activePointerId = null;
+      header.releasePointerCapture?.(e.pointerId);
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerUp);
+
+      if (dragFrameId) {
+        cancelAnimationFrame(dragFrameId);
+        dragFrameId = 0;
+      }
+
+      if (isDragging) {
+        const maxLeft = Math.max(
+          PANEL_EDGE_MARGIN_PX,
+          window.innerWidth - element.offsetWidth - PANEL_EDGE_MARGIN_PX,
+        );
+        const maxTop = Math.max(
+          PANEL_EDGE_MARGIN_PX,
+          window.innerHeight - element.offsetHeight - PANEL_EDGE_MARGIN_PX,
+        );
+
+        element.style.left = `${clampNumber(pendingLeft, PANEL_EDGE_MARGIN_PX, maxLeft)}px`;
+        element.style.top = `${clampNumber(pendingTop, PANEL_EDGE_MARGIN_PX, maxTop)}px`;
+        element.style.right = "auto";
+        element.style.transform = "translate3d(0, 0, 0)";
+      }
+
       isDragging = false;
-      document.removeEventListener("mousemove", onMouseMove);
-      document.removeEventListener("mouseup", onMouseUp);
+      element.classList.remove("dragging");
     }
   }
 
@@ -6082,6 +6580,11 @@
         state.placeholderRenderLimit[type] =
           CONFIG.PLACEHOLDER_RENDER_PAGE_SIZE;
       }
+    });
+
+    setPanelMinimized(state.settings.panelMinimized, {
+      persist: false,
+      immediate: true,
     });
 
     const delayInput = document.getElementById("nai-ext-delay");

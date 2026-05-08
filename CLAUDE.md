@@ -4,26 +4,26 @@
 
 Single-file Tampermonkey userscript for NovelAI (`novelai.net/image`).
 **Entry point:** `ekphrasis.user.js`
-**Current version:** 4.0.0 | **Storage documents:** `ekphrasis.library.v4`, `ekphrasis.settings.v4`, `ekphrasis.session.v4`
+**Current version:** 4.0.2 | **Storage documents:** `ekphrasis.library.v4`, `ekphrasis.settings.v4`, `ekphrasis.session.v4`
 
 **Landing page:** `index.html` (brand dark theme, IBM Plex, teal accent `#5FBFA8`)
 **Logo assets:** `assets/images/logo1.svg` (square icon mark), `assets/images/logo2.svg` (wordmark only), `assets/images/logo3.svg` (full `▌ekphrasis` wordmark — primary logo)
 
-## Versioning — WAJIB diupdate setiap ada perubahan
+## Versioning — must be updated on every change
 
-Gunakan **Semantic Versioning** (`MAJOR.MINOR.PATCH`):
+Use **Semantic Versioning** (`MAJOR.MINOR.PATCH`):
 
-| Tipe perubahan | Bump |
+| Change type | Bump |
 |---|---|
-| Fitur baru (tab baru, sistem baru) | `MINOR` → 3.2.0 |
-| Fix bug, tweak kecil, UI polish | `PATCH` → 3.1.1 |
-| Breaking change / rewrite besar | `MAJOR` → 4.0.0 |
+| New feature (new tab, new system) | `MINOR` → 3.2.0 |
+| Bug fix, small tweak, UI polish | `PATCH` → 3.1.1 |
+| Breaking change / major rewrite | `MAJOR` → 4.0.0 |
 
-**Wajib update 2 tempat setiap kali ada perubahan:**
-1. `@version` di UserScript header (baris 4)
-2. `CONFIG.VERSION` di dalam script (sekitar baris 22)
+**Must update 2 places on every change:**
+1. `@version` in the UserScript header (line 4)
+2. `CONFIG.VERSION` inside the script (around line 22)
 
-Keduanya harus selalu sinkron.
+Both must always be in sync.
 
 ## Architecture
 

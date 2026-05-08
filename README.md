@@ -4,7 +4,7 @@
 
 A Tampermonkey userscript that adds a prompt studio panel to [NovelAI](https://novelai.net/image). Manage templates, placeholders, composition presets, and batch queues — all without leaving the page.
 
-**Current version:** 4.0.0
+**Current version:** 4.0.2
 
 ---
 
@@ -32,13 +32,13 @@ Multiple values can be selected to generate all combinations via the queue.
 Create and manage a separate library of negative prompts. Link each positive template to a specific negative template via the Edit modal — the positive template will show a red **N** badge. Use the **Pos+Neg** button to apply both at once. Links are stored by stable template ID, so deleting a negative template does not break unrelated references.
 
 ### Quality Tags
-The **🏷️** footer strip lets you choose a model preset (V4.5 Full, V4.5 Curated, V4 Full, V4 Curated, V3) and click **+ Insert Quality Tags** to append the appropriate tags directly to the NovelAI prompt.
+The **Quality Tags** footer strip lets you choose a model preset (V4.5 Full, V4.5 Curated, V4 Full, V4 Curated, V3) and click **+ Insert Quality Tags** to append the appropriate tags directly to the NovelAI prompt.
 
 ### T5 Token Counter
 A `~N/512` badge in the Quality strip footer bar shows a real-time estimate of T5 tokens for the current prompt. Color coding: green ≤ 400, yellow 401–480, red > 480.
 
 ### Anlas Calculator
-The **💎** footer strip estimates the Anlas cost per generation:
+The **Anlas** footer strip estimates the Anlas cost per generation:
 - **Opus Plan** toggle — sets V4.5 Full base cost to 0 Anlas when active
 - **Precise Ref** spinner — each reference image adds +5 Anlas
 - **Vibe Transfer** spinner — the first 4 are free; each additional one adds +2 Anlas
@@ -52,7 +52,7 @@ Quick-pick buttons organized into 15 named composition bundles (e.g. Close-Up Po
 ### Batch Queue
 Automatically generates every permutation of templates × placeholder combinations and queues them for sequential generation. Supports configurable delay between generations to avoid rate limiting.
 
-**Batch Raw Import** — click 📋 in the queue bar to paste multiple prompts at once without needing templates. Separate each prompt with `---` on its own line:
+**Batch Raw Import** — click the clipboard icon in the queue bar to paste multiple prompts at once without needing templates. Separate each prompt with `---` on its own line:
 
 ```
 a cute fox, masterpiece
@@ -149,6 +149,7 @@ Legacy `nai_ext_*` keys are automatically migrated on first run and left in plac
 
 - **NovelAI UI changes** — the script locates the prompt textarea via DOM selectors. If NovelAI updates their UI structure, the script may break until selectors are updated.
 - **Generation detection** — polling-based at 1-second intervals; may miss rapid state transitions.
+- **Background tab throttling (known bug)** — queue speed can slow down when the NovelAI tab is not visible (for example while alt-tabbing away). Keeping NovelAI visible side-by-side (multi-window) or in the active window is usually much faster; in many runs, generation averages around ~10 seconds per image.
 - **No automatic retry** — network failures during queue runs are not retried automatically.
 - **Storage size** — `GM_setValue` is backed by the browser's extension storage; very large libraries may hit size limits.
 - **Browser support** — primarily tested on Chrome and Firefox with Tampermonkey.
@@ -185,6 +186,7 @@ See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
 | Version | Date | Summary |
 |---|---|---|
+| [4.0.1](CHANGELOG.md#401--may-2026) | May 2026 | UI polish release — smoother dragging, clearer contrast, branded header/reopen icon, Help/About refresh |
 | [4.0.0](CHANGELOG.md#400--may-2026) | May 2026 | Schema v4 — unified library/settings/session docs, stable ID-based linking, direct `library.json` export/import |
 | [3.9.1](CHANGELOG.md#391--may-2026) | May 2026 | Brand design system — `--ekp-*` CSS tokens, IBM Plex fonts, SVG logos, landing page redesign |
 | [3.9.0](CHANGELOG.md#390--may-2026) | May 2026 | Negative template click-to-apply + Anlas auto-detection from live NAI DOM |
