@@ -34,10 +34,28 @@
 
 ---
 
-## Step 3: Anlas Calculator
+## ✅ Step 3: Anlas Calculator — SELESAI (v3.8.0)
 
-- [ ] Track Precise Reference count (+5 Anlas each)
-- [ ] Track Vibe Transfer count (+2 Anlas for 5th+)
-- [ ] Opus plan mode: V4.5 Full = 0 Anlas base
-- [ ] Display estimated Anlas per generation in footer
+| Komponen | Status |
+|---|---|
+| `calculateAnlas()` — base + ref + vibe cost logic | ✅ |
+| `updateAnlasUI()` — update badge + breakdown + counters | ✅ |
+| Strip 5 footer: 💎 Anlas Calculator | ✅ |
+| Opus plan toggle (V4.5 Full = 0 Anlas) | ✅ |
+| Precise Ref spinner (+5 Anlas each) | ✅ |
+| Vibe Transfer spinner (5th+ = +2 Anlas each) | ✅ |
+| Cost breakdown panel (base / ref / vibe / total) | ✅ |
+| Badge `N Anlas` (green/yellow/red) di footer bar | ✅ |
+| `state.settings.opusPlan/preciseRefCount/vibeCount` persisted | ✅ |
+| Migration di loadState untuk field baru | ✅ |
+| Update Anlas saat model berubah di quality strip | ✅ |
+
+---
+
+## Semua Step Selesai! 🎉
+
+Ekphrasis v3.8.0 — semua fitur dari roadmap Phase 4 selesai:
+- v3.6.0: Negative Template UI
+- v3.7.0: T5 Token Counter + Model-Aware Quality Tags
+- v3.8.0: Precise Reference Tracker + Anlas Calculator
 

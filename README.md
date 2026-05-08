@@ -2,7 +2,7 @@
 
 A Tampermonkey userscript that adds a prompt studio panel to [NovelAI](https://novelai.net/image). Manage templates, placeholders, composition presets, and batch queues — all without leaving the page.
 
-**Current version:** 3.5.4
+**Current version:** 3.8.0
 
 ---
 
@@ -25,6 +25,22 @@ Save and reuse prompt snippets. Organize them with categories. Select one to pre
 Define named placeholder types (e.g. `artist`, `character`, `style`) and fill them with values. Use `{artist}` syntax in templates — the selected value gets substituted at apply time.
 
 Multiple values can be selected to generate all combinations via the queue.
+
+### Negative Templates
+Create and manage a separate library of negative prompts. Link each positive template to a specific negative template via the Edit modal — the positive template will then show a red **N** badge. Use the **Pos+Neg** button to apply both at once.
+
+### Quality Tags
+Strip **🏷️** di footer — pilih model (V4.5 Full, V4.5 Cur, V4 Full, V4 Cur, V3) lalu klik **+ Insert Quality Tags** untuk append quality tags yang sesuai langsung ke prompt NAI.
+
+### T5 Token Counter
+Badge `~N/512` di footer bar Quality strip menampilkan perkiraan jumlah T5 token dari prompt NAI saat ini secara realtime. Hijau ≤400, kuning 401–480, merah >480.
+
+### Anlas Calculator
+Strip **💎** di footer — hitung estimasi biaya Anlas per generasi:
+- **Opus Plan** toggle — V4.5 Full = 0 Anlas base saat aktif
+- **Precise Ref** spinner — tiap reference +5 Anlas
+- **Vibe Transfer** spinner — 4 pertama gratis, ke-5+ +2 Anlas masing-masing
+- Badge live `N Anlas` di footer bar (hijau / kuning / merah)
 
 ### Composition (Framing)
 Quick-pick buttons for shot distance, camera angle, body focus, and pose. Click to toggle a tag directly into the prompt.
@@ -75,7 +91,7 @@ Data is stored in `localStorage` via Tampermonkey's `GM_getValue`/`GM_setValue`:
 | `nai_ext_negative_templates_v3` | Negative prompt templates |
 | `nai_ext_placeholders` | Placeholder values per type |
 | `nai_ext_categories` | Category list |
-| `nai_ext_settings_v3` | Settings (delay, quality preset, etc.) |
+| `nai_ext_settings_v3` | Settings (delay, model, Anlas config, etc.) |
 
 Legacy keys (`v2`, `nai_ext_artists`) are auto-migrated on first run.
 
@@ -94,8 +110,8 @@ Legacy keys (`v2`, `nai_ext_artists`) are auto-migrated on first run.
 
 | Model | Quality Tags |
 |---|---|
-| V4.5 Full | `masterpiece, very aesthetic, no text` |
-| V4.5 Curated | `masterpiece, no text, -0.8::feet::, rating:general` |
+| V4.5 Full | `location, very aesthetic, masterpiece, no text` |
+| V4.5 Curated | `location, masterpiece, no text, -0.8::feet::, rating:general` |
 | V4 Full | `no text, best quality, very aesthetic, absurdres` |
 | V4 Curated | `amazing quality, very aesthetic, absurdres` |
 | V3 | `best quality, amazing quality, very aesthetic, absurdres` |

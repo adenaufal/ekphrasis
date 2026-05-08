@@ -6,6 +6,65 @@
 
 ---
 
+## [3.8.0] — May 2026
+
+### Added
+- **Anlas Calculator** — Strip 5 baru di footer (`💎`).
+  - **Opus Plan toggle** — saat aktif, V4.5 Full base cost = 0 Anlas.
+  - **Precise Reference spinner** (+/−) — tiap ref +5 Anlas, expand panel tampil breakdown.
+  - **Vibe Transfer spinner** (+/−) — 4 pertama gratis, ke-5+ +2 Anlas masing-masing.
+  - Cost breakdown panel: `Base / Ref ×N / Vibe ×N / Total`.
+  - Badge live `N Anlas` di footer bar: hijau (0), kuning (≤10), merah (>10).
+- `calculateAnlas()` — fungsi pure untuk menghitung biaya (base + ref + vibe).
+- `updateAnlasUI()` — update badge + breakdown + counter display.
+- `state.settings.opusPlan`, `preciseRefCount`, `vibeCount` — persisted ke storage.
+- Migration di `loadState()` untuk ketiga field baru jika belum ada.
+- Anlas otomatis di-recalculate saat model berubah di quality strip (base cost berbeda per model).
+
+---
+
+## [3.7.0] — May 2026
+
+### Added
+- **T5 Token Counter** — badge `~N/512` realtime di footer bar Quality strip.
+  Menggunakan `MutationObserver` pada ProseMirror prompt editor NAI.
+  Warna: hijau (≤400), kuning (401–480), merah (>480).
+- **Model-Aware Quality Tags** — Strip 4 baru di footer (`🏷️`).
+  - 5 tombol model: V4.5 Full, V4.5 Cur, V4 Full, V4 Cur, V3.
+  - Panel expand: preview tag + tombol **+ Insert Quality Tags** (append ke prompt NAI).
+  - Pilihan model persisted via `state.settings.currentModel`.
+- `QUALITY_TAG_PRESETS` constant — 5 preset model dengan label + tags string.
+- `estimateT5Tokens(text)` — heuristik ~1 token per 5 karakter per kata.
+- `initTokenCounter()` — setup MutationObserver setelah panel init.
+- `updateQualityTagsUI()` — sync tombol active + preview text + label.
+- Migration di `loadState()` untuk `currentModel` jika belum ada / invalid.
+
+---
+
+## [3.6.0] — May 2026
+
+### Added
+- **Negative Template UI** — Tab Positive/Negative di panel Templates.
+  - CRUD penuh: tambah, edit inline (nama + konten), hapus.
+  - Delete otomatis shift semua `negativeId` reference di positive templates.
+- **Link Template → Negative** — modal edit positive template kini punya dropdown **Linked Negative**.
+  Pilihan: `(none)` + semua negative template yang ada.
+- **N badge merah** di list positive template jika punya linked negative yang valid.
+- `renderNegativeTemplates()` — render panel + event handlers CRUD.
+- `saveNegativeTemplates()` — persist ke `nai_ext_negative_templates_v3`.
+- `openEditTemplateModal(index)` — modal inline dengan field Name, Prompt, Linked Negative.
+
+### Fixed
+- `applyPrompt()` — graceful fallback jika `negativeId` out-of-bounds (setelah delete).
+- `updatePreview()` — handle format objek `{ content, name }` untuk negative templates.
+- `renderNegativeTemplates()` dipanggil di main init dan import config handler (sebelumnya hilang).
+- `saveNegativeTemplates()` dipanggil di import config handler.
+
+### Changed
+- **"Pos+Neg" button** — tooltip berbeda jika template tidak punya linked negative; opacity dim.
+
+---
+
 ## [3.3.1] — March 2026
 
 ### Fixed

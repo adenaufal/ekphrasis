@@ -12,6 +12,9 @@
 | v3.3.0 | Mar 2026 | Framing rework → Composition Bundles (flat grid, append-only, 15 named bundles) |
 | v3.3.1 | Mar 2026 | Minor polish |
 | v3.5.4 | May 2026 | Art style presets (STYLE_PRESETS), negative template storage, queue state persistence |
+| v3.6.0 | May 2026 | Negative Template UI — CRUD, linking positive→negative, N badge, index-shift safety |
+| v3.7.0 | May 2026 | T5 Token Counter (realtime badge) + Model-Aware Quality Tags (Strip 4 footer) |
+| v3.8.0 | May 2026 | Anlas Calculator (Strip 5 footer) — Opus toggle, Precise Ref, Vibe Transfer |
 
 All v1–v3 features are complete. See git history for details.
 
@@ -20,16 +23,12 @@ All v1–v3 features are complete. See git history for details.
 ## 🚀 Phase 4: Planned
 
 ### 🔴 Active (in-progress)
-- [ ] **Negative Template UI** — CRUD tab + linking positive→negative, tombol Both fungsional (lihat `todo.md`)
-- [ ] **T5 Token Counter** — live counter di dekat prompt input (V4+ limit ~512 T5 tokens)
-- [ ] **Model-Aware Quality Tags** — auto-swap quality tags saat model berubah:
-  - V4.5 Full: `masterpiece, very aesthetic, no text`
-  - V4.5 Curated: `masterpiece, no text, -0.8::feet::, rating:general`
-  - V4 Full: `no text, best quality, very aesthetic, absurdres`
-  - V3: `best quality, amazing quality, very aesthetic, absurdres`
+- [x] **Negative Template UI** *(v3.6.0)* — CRUD tab + linking positive→negative, tombol Both fungsional
+- [x] **T5 Token Counter** *(v3.7.0)* — live badge `~N/512` di footer, realtime via MutationObserver
+- [x] **Model-Aware Quality Tags** *(v3.7.0)* — Strip 4 footer dengan 5 model preset + Insert button
+- [x] **Estimated Anlas cost calculator** *(v3.8.0)* — Strip 5 footer, Opus toggle, Precise Ref (+5 ea), Vibe Transfer (5th+ +2 ea)
 
 ### Queue Enhancements
-- [ ] **Estimated Anlas cost calculator** — perlu memperhitungkan: base cost, Vibe Transfer (+2 Anlas ab vibe ke-5), Precise Reference (+5 Anlas per reference per image), Opus free gen (V4.5 Full = 0 Anlas)
 - [ ] Preview combinations before queuing
 - [ ] Random delay range between generations
 - [ ] Rate limiting protection
@@ -94,4 +93,4 @@ All v1–v3 features are complete. See git history for details.
 
 ---
 
-*Last updated: May 2026 (v3.5.4) — analysis based on live NAI website + Context7 docs*
+*Last updated: May 2026 (v3.8.0)*

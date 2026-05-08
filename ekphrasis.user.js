@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ekphrasis
 // @namespace    ekphrasis
-// @version      3.7.0
+// @version      3.8.0
 // @description  Prompt studio for NovelAI — templates, weights, randomizers, and batch queue
 // @author       adenaufal
 // @match        https://novelai.net/image*
@@ -19,7 +19,7 @@
   // CONFIGURATION
   // ============================================
   const CONFIG = {
-    VERSION: "3.7.0",
+    VERSION: "3.8.0",
     STORAGE_KEY_TEMPLATES: "nai_ext_templates_v3",
     STORAGE_KEY_PLACEHOLDERS: "nai_ext_placeholders",
     STORAGE_KEY_CATEGORIES: "nai_ext_categories",
@@ -1223,6 +1223,59 @@
         .nai-ext-model-btn:hover { background: #e0e0e0; }
         .nai-ext-model-btn.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
 
+        /* Anlas calculator */
+        .nai-ext-anlas-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 5px;
+            font-size: 11px;
+        }
+        .nai-ext-anlas-row label { flex: 1; color: #555; font-size: 10px; }
+        .nai-ext-anlas-spinner {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+        }
+        .nai-ext-anlas-spinner button {
+            width: 18px;
+            height: 18px;
+            line-height: 1;
+            padding: 0;
+            border: 1px solid #d0d0d0;
+            background: #f0f0f0;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .nai-ext-anlas-spinner button:hover { background: #e0e0e0; }
+        .nai-ext-anlas-spinner span {
+            width: 22px;
+            text-align: center;
+            font-weight: 700;
+            font-size: 11px;
+        }
+        #nai-ext-anlas-cost {
+            font-size: 10px;
+            font-weight: 700;
+            font-family: 'Consolas', 'Monaco', monospace;
+            padding: 1px 5px;
+            border: 1px solid #e0e0e0;
+            white-space: nowrap;
+        }
+        #nai-ext-anlas-cost.free { color: #16a34a; border-color: #bbf7d0; }
+        #nai-ext-anlas-cost.cheap { color: #d97706; border-color: #fde68a; }
+        #nai-ext-anlas-cost.costly { color: #dc2626; border-color: #fca5a5; background: #fee2e2; }
+        .nai-ext-opus-toggle {
+            font-size: 9px;
+            padding: 2px 6px;
+            border: 1.5px solid #d0d0d0;
+            background: #f0f0f0;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .nai-ext-opus-toggle.active { background: #7c3aed; color: #fff; border-color: #7c3aed; }
+
         /* Body padding-bottom to clear footer — overridden dynamically by JS */
         .nai-ext-body {
             padding-bottom: 100px;
@@ -1406,6 +1459,9 @@
       freeSafeMode: false,
       randomizerEnabled: false,
       currentModel: "v45_full",
+      opusPlan: false,
+      preciseRefCount: 0,
+      vibeCount: 0,
     },
     // Weight syntax state
     weightPresets: {}, // Custom weight presets
@@ -2206,6 +2262,48 @@
                         <span id="nai-ext-quality-model-label" style="font-size:10px;color:#666;flex:1;">V4.5 Full</span>
                         <span id="nai-ext-token-count" class="ok" title="Approximate T5 token count of current NAI prompt (~512 limit for V4+)">~0/512</span>
                         <button class="nai-ext-footer-toggle" id="nai-ext-quality-toggle" title="Quality tags &amp; token counter"></button>
+                    </div>
+                </div>
+
+                <!-- Strip 5: Anlas Calculator -->
+                <div class="nai-ext-footer-strip" id="nai-ext-anlas-strip">
+                    <div class="nai-ext-footer-panel" id="nai-ext-anlas-panel">
+                        <div style="font-size:10px;color:#666;font-weight:600;margin-bottom:6px;">Anlas Cost Calculator</div>
+
+                        <!-- Opus plan toggle -->
+                        <div class="nai-ext-anlas-row" style="margin-bottom:7px;">
+                            <label title="Opus plan: V4.5 Full costs 0 Anlas base">Opus Plan</label>
+                            <button class="nai-ext-opus-toggle" id="nai-ext-opus-toggle" title="Toggle Opus plan (V4.5 Full = 0 Anlas base)">OFF</button>
+                        </div>
+
+                        <!-- Precise Reference counter -->
+                        <div class="nai-ext-anlas-row">
+                            <label title="Each Precise Reference costs +5 Anlas per image">Precise Ref <span style="color:#999;">(+5 ea)</span></label>
+                            <div class="nai-ext-anlas-spinner">
+                                <button id="nai-ext-ref-dec" title="Remove one Precise Reference">−</button>
+                                <span id="nai-ext-ref-count">0</span>
+                                <button id="nai-ext-ref-inc" title="Add one Precise Reference">+</button>
+                            </div>
+                        </div>
+
+                        <!-- Vibe Transfer counter -->
+                        <div class="nai-ext-anlas-row">
+                            <label title="5th+ Vibe Transfer costs +2 Anlas each">Vibe Transfer <span style="color:#999;">(5th+ +2 ea)</span></label>
+                            <div class="nai-ext-anlas-spinner">
+                                <button id="nai-ext-vibe-dec" title="Remove one Vibe Transfer">−</button>
+                                <span id="nai-ext-vibe-count">0</span>
+                                <button id="nai-ext-vibe-inc" title="Add one Vibe Transfer">+</button>
+                            </div>
+                        </div>
+
+                        <!-- Cost breakdown -->
+                        <div id="nai-ext-anlas-breakdown" style="font-size:10px;color:#888;margin-top:6px;padding-top:5px;border-top:1px solid #e0e0e0;font-family:'Consolas',monospace;line-height:1.7;"></div>
+                    </div>
+                    <div class="nai-ext-footer-bar" id="nai-ext-anlas-bar">
+                        <span style="font-size:11px;flex-shrink:0;">💎</span>
+                        <span style="font-size:10px;color:#666;flex:1;" id="nai-ext-anlas-bar-label">Anlas / image</span>
+                        <span id="nai-ext-anlas-cost" class="free" title="Estimated Anlas cost per generation">0 Anlas</span>
+                        <button class="nai-ext-footer-toggle" id="nai-ext-anlas-toggle" title="Anlas cost calculator"></button>
                     </div>
                 </div>
 
@@ -4171,6 +4269,7 @@
       state.settings.currentModel = btn.dataset.model;
       saveSettings();
       updateQualityTagsUI();
+      updateAnlasUI(); // base cost changes per model
     });
 
     // Insert quality tags button
@@ -4180,6 +4279,37 @@
       const current = NovelAI.getCurrentPrompt();
       const newPrompt = current ? `${current}, ${preset.tags}` : preset.tags;
       NovelAI.setPrompt(newPrompt);
+    });
+
+    // Anlas calculator — Opus plan toggle
+    document.getElementById("nai-ext-opus-toggle")?.addEventListener("click", () => {
+      state.settings.opusPlan = !state.settings.opusPlan;
+      saveSettings();
+      updateAnlasUI();
+    });
+
+    // Precise Reference spinner
+    document.getElementById("nai-ext-ref-inc")?.addEventListener("click", () => {
+      state.settings.preciseRefCount = (state.settings.preciseRefCount || 0) + 1;
+      saveSettings();
+      updateAnlasUI();
+    });
+    document.getElementById("nai-ext-ref-dec")?.addEventListener("click", () => {
+      state.settings.preciseRefCount = Math.max(0, (state.settings.preciseRefCount || 0) - 1);
+      saveSettings();
+      updateAnlasUI();
+    });
+
+    // Vibe Transfer spinner
+    document.getElementById("nai-ext-vibe-inc")?.addEventListener("click", () => {
+      state.settings.vibeCount = (state.settings.vibeCount || 0) + 1;
+      saveSettings();
+      updateAnlasUI();
+    });
+    document.getElementById("nai-ext-vibe-dec")?.addEventListener("click", () => {
+      state.settings.vibeCount = Math.max(0, (state.settings.vibeCount || 0) - 1);
+      saveSettings();
+      updateAnlasUI();
     });
 
     makeDraggable(document.getElementById("nai-ext-panel"));
@@ -4235,6 +4365,81 @@
     document.querySelectorAll(".nai-ext-model-btn").forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.model === model);
     });
+  }
+
+  function calculateAnlas() {
+    const s = state.settings;
+    const model = s.currentModel || "v45_full";
+    const opus = !!s.opusPlan;
+    const refs = Math.max(0, s.preciseRefCount || 0);
+    const vibes = Math.max(0, s.vibeCount || 0);
+
+    // Base cost
+    let base = 0;
+    if (model === "v45_full" && opus) {
+      base = 0; // Opus plan: V4.5 Full is free
+    } else if (model === "v45_full") {
+      base = 5; // Non-Opus V4.5 Full approximate
+    } else if (model === "v45_curated") {
+      base = 5;
+    } else if (model === "v4_full" || model === "v4_curated") {
+      base = 5;
+    } else {
+      base = 4; // V3 approximate
+    }
+
+    const refCost = refs * 5;
+    // First 4 vibes are free, 5th+ costs +2 each
+    const vibeCost = vibes > 4 ? (vibes - 4) * 2 : 0;
+    const total = base + refCost + vibeCost;
+
+    return { base, refCost, vibeCost, total, refs, vibes, opus, model };
+  }
+
+  function updateAnlasUI() {
+    const s = state.settings;
+    const { base, refCost, vibeCost, total, refs, vibes, opus } = calculateAnlas();
+
+    // Counters
+    const refCountEl = document.getElementById("nai-ext-ref-count");
+    if (refCountEl) refCountEl.textContent = refs;
+    const vibeCountEl = document.getElementById("nai-ext-vibe-count");
+    if (vibeCountEl) vibeCountEl.textContent = vibes;
+
+    // Opus toggle
+    const opusBtn = document.getElementById("nai-ext-opus-toggle");
+    if (opusBtn) {
+      opusBtn.textContent = opus ? "OPUS ON" : "OFF";
+      opusBtn.classList.toggle("active", opus);
+    }
+
+    // Badge in bar
+    const costEl = document.getElementById("nai-ext-anlas-cost");
+    if (costEl) {
+      costEl.textContent = `${total} Anlas`;
+      costEl.className = total === 0 ? "free" : total <= 10 ? "cheap" : "costly";
+      costEl.title = `~${total} Anlas/image`;
+    }
+
+    // Bar label
+    const barLabel = document.getElementById("nai-ext-anlas-bar-label");
+    if (barLabel) barLabel.textContent = opus ? "Anlas/img (Opus)" : "Anlas/img";
+
+    // Breakdown panel
+    const breakdown = document.getElementById("nai-ext-anlas-breakdown");
+    if (breakdown) {
+      const lines = [];
+      lines.push(`Base:     ${base} Anlas${base === 0 ? " (Opus free!)" : ""}`);
+      if (refCost > 0) lines.push(`Ref ×${refs}:  +${refCost} Anlas`);
+      if (vibes > 0) {
+        const freeVibes = Math.min(vibes, 4);
+        const paidVibes = Math.max(0, vibes - 4);
+        lines.push(`Vibe ×${vibes}: ${freeVibes} free${paidVibes > 0 ? `, ${paidVibes} paid +${vibeCost}` : ""}`);
+      }
+      lines.push(`──────────────`);
+      lines.push(`Total:    ${total} Anlas`);
+      breakdown.textContent = lines.join("\n");
+    }
   }
 
   function appendTags(tags) {
@@ -4555,6 +4760,9 @@
     if (!state.settings.currentModel || !QUALITY_TAG_PRESETS[state.settings.currentModel]) {
       state.settings.currentModel = "v45_full";
     }
+    if (typeof state.settings.opusPlan !== "boolean") state.settings.opusPlan = false;
+    if (typeof state.settings.preciseRefCount !== "number") state.settings.preciseRefCount = 0;
+    if (typeof state.settings.vibeCount !== "number") state.settings.vibeCount = 0;
 
     if (!state.placeholders.artist) state.placeholders.artist = [];
     if (!state.placeholders.character) state.placeholders.character = [];
@@ -4775,7 +4983,7 @@
   }
 
   function setupFooterToggles() {
-    ["nai-ext-apply-bar", "nai-ext-queue-bar", "nai-ext-quality-bar"].forEach((barId) => {
+    ["nai-ext-apply-bar", "nai-ext-queue-bar", "nai-ext-quality-bar", "nai-ext-anlas-bar"].forEach((barId) => {
       document.getElementById(barId)?.addEventListener("click", (e) => {
         if (e.target.closest("button:not(.nai-ext-footer-toggle), input")) return;
         const strip = e.target.closest(".nai-ext-footer-strip");
@@ -4824,6 +5032,7 @@
         setupFooterToggles();
         initTokenCounter();
         updateQualityTagsUI();
+        updateAnlasUI();
         setTimeout(updateBodyPadding, 150);
 
         const savedQueueData = Storage.get(CONFIG.STORAGE_KEY_QUEUE_STATE, null);
