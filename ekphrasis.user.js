@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ekphrasis
 // @namespace    ekphrasis
-// @version      3.5.5
+// @version      3.6.0
 // @description  Prompt studio for NovelAI — templates, weights, randomizers, and batch queue
 // @author       adenaufal
 // @match        https://novelai.net/image*
@@ -19,7 +19,7 @@
   // CONFIGURATION
   // ============================================
   const CONFIG = {
-    VERSION: "3.5.5",
+    VERSION: "3.6.0",
     STORAGE_KEY_TEMPLATES: "nai_ext_templates_v3",
     STORAGE_KEY_PLACEHOLDERS: "nai_ext_placeholders",
     STORAGE_KEY_CATEGORIES: "nai_ext_categories",
@@ -1986,15 +1986,34 @@
                         <span>TEMPLATES</span>
                     </div>
                     <div class="nai-ext-section-content">
-                        <div class="nai-ext-tabs" id="nai-ext-category-tabs">
-                            <button class="nai-ext-tab active" data-category="all">All</button>
+                        <!-- Mode tabs: Positive / Negative -->
+                        <div class="nai-ext-tabs" id="nai-ext-template-mode-tabs" style="margin-bottom:6px;">
+                            <button class="nai-ext-tab active" data-template-mode="positive">Positive</button>
+                            <button class="nai-ext-tab" data-template-mode="negative">Negative</button>
                         </div>
-                        <div class="nai-ext-template-list" id="nai-ext-template-list">
-                            <div class="nai-ext-empty">No templates saved</div>
+
+                        <!-- Positive templates view -->
+                        <div id="nai-ext-positive-view">
+                            <div class="nai-ext-tabs" id="nai-ext-category-tabs">
+                                <button class="nai-ext-tab active" data-category="all">All</button>
+                            </div>
+                            <div class="nai-ext-template-list" id="nai-ext-template-list">
+                                <div class="nai-ext-empty">No templates saved</div>
+                            </div>
+                            <button class="nai-ext-btn nai-ext-btn-full secondary" id="nai-ext-add-template">
+                                + Add Current Prompt as Template
+                            </button>
                         </div>
-                        <button class="nai-ext-btn nai-ext-btn-full secondary" id="nai-ext-add-template">
-                            + Add Current Prompt as Template
-                        </button>
+
+                        <!-- Negative templates view -->
+                        <div id="nai-ext-negative-view" style="display:none;">
+                            <div class="nai-ext-template-list" id="nai-ext-neg-template-list">
+                                <div class="nai-ext-empty">No negative templates saved</div>
+                            </div>
+                            <button class="nai-ext-btn nai-ext-btn-full secondary" id="nai-ext-add-neg-template">
+                                + Add Negative Template
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -2262,8 +2281,13 @@
           typeof template === "object" ? template.content : template;
         const name = typeof template === "object" ? template.name : "";
         const category = typeof template === "object" ? template.category : "";
+        const negativeId = typeof template === "object" ? template.negativeId : undefined;
+        const hasValidNeg = negativeId !== undefined && state.negativeTemplates[negativeId] !== undefined;
         const catBadge = category
           ? `<span class="nai-ext-template-category">${category}</span>`
+          : "";
+        const negBadge = hasValidNeg
+          ? `<span title="Linked to negative template" style="font-size:9px;background:#dc2626;color:#fff;padding:1px 4px;margin-right:2px;font-weight:700;">N</span>`
           : "";
         const isSelected = state.selectedTemplates.includes(actualIndex);
 
@@ -2279,7 +2303,7 @@
                         <span class="nai-ext-template-text" title="${escapeHtml(content)}" style="${name ? "font-weight:600;" : ""}">${escapeHtml(displayText)}</span>
                         ${subtitle}
                     </div>
-                    ${catBadge}
+                    ${negBadge}${catBadge}
                     <div class="nai-ext-template-actions">
                         <button class="nai-ext-template-btn edit" data-index="${actualIndex}" title="Edit">✎</button>
                         <button class="nai-ext-template-btn delete" data-index="${actualIndex}" title="Delete">×</button>
@@ -2328,36 +2352,162 @@
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         const index = parseInt(btn.dataset.index);
-        const template = state.templates[index];
-        const content =
-          typeof template === "object" ? template.content : template;
-        const currentName =
-          typeof template === "object" ? template.name || "" : "";
+        openEditTemplateModal(index);
+      });
+    });
+  }
 
-        const newName = prompt(
-          "Preset name (optional, leave empty to show prompt):",
-          currentName,
-        );
+  function openEditTemplateModal(index) {
+    const template = state.templates[index];
+    const content = typeof template === "object" ? template.content : template;
+    const currentName = typeof template === "object" ? template.name || "" : "";
+    const currentNegId = typeof template === "object" ? template.negativeId : undefined;
+
+    // Build negative template options
+    const negOptions = state.negativeTemplates.map((nt, i) => {
+      const label = typeof nt === "object" ? (nt.name || nt.content.substring(0, 30)) : nt.substring(0, 30);
+      const selected = currentNegId === i ? " selected" : "";
+      return `<option value="${i}"${selected}>${escapeHtml(label)}${label.length >= 30 ? "…" : ""}</option>`;
+    }).join("");
+
+    const modalId = "nai-ext-edit-template-modal";
+    let modal = document.getElementById(modalId);
+    if (modal) modal.remove();
+
+    modal = document.createElement("div");
+    modal.id = modalId;
+    modal.style.cssText = `
+      position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);
+      z-index:99999;display:flex;align-items:center;justify-content:center;
+    `;
+    modal.innerHTML = `
+      <div style="background:#fff;border:2px solid #1a1a1a;padding:16px;width:340px;max-width:95vw;font-family:'Segoe UI',sans-serif;font-size:13px;">
+        <div style="font-weight:700;margin-bottom:12px;font-size:14px;">Edit Template</div>
+        <label style="display:block;margin-bottom:4px;font-size:11px;font-weight:600;">Name (optional)</label>
+        <input id="nai-ext-edit-tpl-name" type="text" value="${escapeHtml(currentName)}" placeholder="Leave empty to show prompt text"
+          style="width:100%;box-sizing:border-box;border:1px solid #ccc;padding:6px 8px;font-size:12px;margin-bottom:10px;">
+        <label style="display:block;margin-bottom:4px;font-size:11px;font-weight:600;">Prompt</label>
+        <textarea id="nai-ext-edit-tpl-content" rows="4"
+          style="width:100%;box-sizing:border-box;border:1px solid #ccc;padding:6px 8px;font-size:12px;resize:vertical;margin-bottom:10px;">${escapeHtml(content)}</textarea>
+        <label style="display:block;margin-bottom:4px;font-size:11px;font-weight:600;">Linked Negative Template</label>
+        <select id="nai-ext-edit-tpl-neg"
+          style="width:100%;box-sizing:border-box;border:1px solid #ccc;padding:6px 8px;font-size:12px;margin-bottom:14px;">
+          <option value=""${currentNegId === undefined ? " selected" : ""}>(none)</option>
+          ${negOptions}
+        </select>
+        ${state.negativeTemplates.length === 0 ? '<div style="font-size:10px;color:#888;margin-top:-10px;margin-bottom:10px;">No negative templates yet — create some in the Negative tab first.</div>' : ''}
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button id="nai-ext-edit-tpl-cancel" style="padding:6px 14px;border:1px solid #ccc;background:#fff;cursor:pointer;font-size:12px;">Cancel</button>
+          <button id="nai-ext-edit-tpl-save" style="padding:6px 14px;border:2px solid #1a1a1a;background:#1a1a1a;color:#fff;cursor:pointer;font-size:12px;font-weight:600;">Save</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    document.getElementById("nai-ext-edit-tpl-cancel").addEventListener("click", () => modal.remove());
+    modal.addEventListener("click", (e) => { if (e.target === modal) modal.remove(); });
+    document.getElementById("nai-ext-edit-tpl-save").addEventListener("click", () => {
+      const newName = document.getElementById("nai-ext-edit-tpl-name").value.trim();
+      const newText = document.getElementById("nai-ext-edit-tpl-content").value.trim();
+      const negSel = document.getElementById("nai-ext-edit-tpl-neg").value;
+      if (!newText) return;
+
+      const negId = negSel !== "" ? parseInt(negSel) : undefined;
+
+      if (typeof template === "object") {
+        state.templates[index].content = newText;
+        state.templates[index].name = newName;
+        state.templates[index].negativeId = negId;
+        if (negId === undefined) delete state.templates[index].negativeId;
+      } else {
+        state.templates[index] = { content: newText, name: newName, category: "general" };
+        if (negId !== undefined) state.templates[index].negativeId = negId;
+      }
+      saveTemplates();
+      renderTemplates();
+      updatePreview();
+      modal.remove();
+    });
+    document.getElementById("nai-ext-edit-tpl-name").focus();
+  }
+
+  function renderNegativeTemplates() {
+    const list = document.getElementById("nai-ext-neg-template-list");
+    if (!list) return;
+
+    if (state.negativeTemplates.length === 0) {
+      list.innerHTML = '<div class="nai-ext-empty">No negative templates saved</div>';
+      return;
+    }
+
+    list.innerHTML = state.negativeTemplates.map((nt, i) => {
+      const text = typeof nt === "object" ? nt.content : nt;
+      const name = typeof nt === "object" ? nt.name || "" : "";
+      const display = name || text;
+      const sub = name ? `<div style="font-size:10px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(text.substring(0, 50))}${text.length > 50 ? "…" : ""}</div>` : "";
+      // Count how many positive templates link to this negative
+      const linkCount = state.templates.filter(t => typeof t === "object" && t.negativeId === i).length;
+      const badge = linkCount > 0 ? `<span title="${linkCount} template(s) linked" style="font-size:10px;background:#1a1a1a;color:#fff;padding:1px 5px;margin-right:4px;">×${linkCount}</span>` : "";
+      return `
+        <div class="nai-ext-neg-template-item" data-neg-index="${i}">
+          <div style="flex:1;overflow:hidden;">
+            <div class="nai-ext-neg-template-text" title="${escapeHtml(text)}">${escapeHtml(display)}</div>
+            ${sub}
+          </div>
+          ${badge}
+          <div class="nai-ext-template-actions">
+            <button class="nai-ext-template-btn edit" data-neg-index="${i}" title="Edit">✎</button>
+            <button class="nai-ext-template-btn delete" data-neg-index="${i}" title="Delete">×</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    list.querySelectorAll(".nai-ext-template-btn.edit").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const i = parseInt(btn.dataset.negIndex);
+        const nt = state.negativeTemplates[i];
+        const currentText = typeof nt === "object" ? nt.content : nt;
+        const currentName = typeof nt === "object" ? nt.name || "" : "";
+
+        const newName = prompt("Name (optional):", currentName);
         if (newName === null) return;
-
-        const newText = prompt("Edit template prompt:", content);
+        const newText = prompt("Edit negative prompt:", currentText);
         if (newText !== null && newText.trim()) {
-          if (typeof template === "object") {
-            state.templates[index].content = newText.trim();
-            state.templates[index].name = newName.trim();
-          } else {
-            state.templates[index] = {
-              content: newText.trim(),
-              name: newName.trim(),
-              category: "general",
-            };
-          }
-          saveTemplates();
-          renderTemplates();
-          updatePreview();
+          state.negativeTemplates[i] = { content: newText.trim(), name: newName.trim() };
+          saveNegativeTemplates();
+          renderNegativeTemplates();
         }
       });
     });
+
+    list.querySelectorAll(".nai-ext-template-btn.delete").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const i = parseInt(btn.dataset.negIndex);
+        if (!confirm("Delete this negative template?\n\nAll linked positive templates will lose their negative link.")) return;
+
+        // Shift negativeId references in positive templates
+        state.templates.forEach((t, ti) => {
+          if (typeof t !== "object") return;
+          if (t.negativeId === i) {
+            delete state.templates[ti].negativeId;
+          } else if (t.negativeId !== undefined && t.negativeId > i) {
+            state.templates[ti].negativeId--;
+          }
+        });
+
+        state.negativeTemplates.splice(i, 1);
+        saveNegativeTemplates();
+        saveTemplates();
+        renderNegativeTemplates();
+      });
+    });
+  }
+
+  function saveNegativeTemplates() {
+    Storage.set(CONFIG.STORAGE_KEY_NEGATIVE_TEMPLATES, state.negativeTemplates);
   }
 
   function renderPlaceholderTabs() {
@@ -2725,14 +2875,23 @@
       const completed = state.currentQueueIndex;
       const total = state.queue.length;
       const percent = Math.round((completed / total) * 100);
+      const { etaMs } = getQueueTimingEstimate();
 
       progressLabel.textContent = `${completed}/${total}`;
       progressPercent.textContent = `${percent}%`;
       progressFill.style.width = `${percent}%`;
-      progress.title = `Queue progress: ${completed} of ${total} completed (${percent}%)`;
-      progressLabel.title = `Completed ${completed} of ${total} queued prompts`;
-      progressPercent.title = `Queue progress is ${percent}%`;
-      progressFill.title = `Queue progress bar at ${percent}%`;
+      progress.title = etaMs !== null
+        ? `Queue progress: ${completed} of ${total} completed (${percent}%). Est. finish around ${formatClockTime(Date.now() + etaMs)}.`
+        : `Queue progress: ${completed} of ${total} completed (${percent}%). Finish time still calibrating.`;
+      progressLabel.title = etaMs !== null
+        ? `Completed ${completed} of ${total} queued prompts. ETA ${formatDurationCompact(etaMs)}.`
+        : `Completed ${completed} of ${total} queued prompts.`;
+      progressPercent.title = etaMs !== null
+        ? `Queue progress is ${percent}%. Est. finish around ${formatClockTime(Date.now() + etaMs)}.`
+        : `Queue progress is ${percent}%.`;
+      progressFill.title = etaMs !== null
+        ? `Queue progress bar at ${percent}%. Est. finish around ${formatClockTime(Date.now() + etaMs)}.`
+        : `Queue progress bar at ${percent}%.`;
     }
 
     list.querySelectorAll(".nai-ext-queue-remove").forEach((btn) => {
@@ -2774,6 +2933,30 @@
       return `${minutes}m ${seconds}s`;
     }
     return `${seconds}s`;
+  }
+
+  function formatEtaLabelCompact(ms) {
+    if (!Number.isFinite(ms) || ms <= 0) return "ETA --";
+
+    const totalMinutes = Math.ceil(ms / 60000);
+    if (totalMinutes >= 60) {
+      const hours = Math.floor(totalMinutes / 60);
+      const minutes = totalMinutes % 60;
+      return minutes === 0 ? `~${hours}h` : `~${hours}h${minutes}m`;
+    }
+    if (totalMinutes >= 1) {
+      return `~${totalMinutes}m`;
+    }
+    return `~${Math.max(1, Math.ceil(ms / 1000))}s`;
+  }
+
+  function formatClockTime(timestamp) {
+    if (!Number.isFinite(timestamp)) return "--:--";
+
+    return new Date(timestamp).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   }
 
   function resetQueueTiming() {
@@ -2921,17 +3104,17 @@
     }
 
     if (state.isQueuePaused) {
-      meta.textContent = etaMs !== null ? `ETA ${formatDurationCompact(etaMs)}` : "Paused";
+      meta.textContent = etaMs !== null ? formatEtaLabelCompact(etaMs) : "Paused";
       meta.title = etaMs !== null
-        ? `Queue paused. Elapsed ${formatDurationCompact(elapsedMs)}. Sisa ${remaining} item, estimasi ${formatDurationCompact(etaMs)}.`
+        ? `Queue paused. Elapsed ${formatDurationCompact(elapsedMs)}. Sisa ${remaining} item, estimasi ${formatDurationCompact(etaMs)}. Perkiraan selesai ${formatClockTime(Date.now() + etaMs)}.`
         : `Queue paused. Elapsed ${formatDurationCompact(elapsedMs)}. ETA masih dikalibrasi.`;
       return;
     }
 
     if (state.isQueueRunning) {
-      meta.textContent = etaMs !== null ? `ETA ${formatDurationCompact(etaMs)}` : "ETA ...";
+      meta.textContent = etaMs !== null ? formatEtaLabelCompact(etaMs) : "ETA ...";
       meta.title = etaMs !== null
-        ? `Elapsed ${formatDurationCompact(elapsedMs)}. Avg/item ${formatDurationCompact(averageCycleMs)}. Sisa ${remaining} item.`
+        ? `Elapsed ${formatDurationCompact(elapsedMs)}. Avg/item ${formatDurationCompact(averageCycleMs)}. Sisa ${remaining} item. Perkiraan selesai ${formatClockTime(Date.now() + etaMs)}.`
         : `Elapsed ${formatDurationCompact(elapsedMs)}. ETA masih dikalibrasi dari item yang sedang berjalan.`;
       return;
     }
@@ -2944,9 +3127,9 @@
       return;
     }
 
-    meta.textContent = etaMs !== null ? `ETA ${formatDurationCompact(etaMs)}` : "ETA --";
+    meta.textContent = etaMs !== null ? formatEtaLabelCompact(etaMs) : "ETA --";
     meta.title = etaMs !== null
-      ? `Queue siap jalan. Sisa ${remaining} item, estimasi ${formatDurationCompact(etaMs)}.`
+      ? `Queue siap jalan. Sisa ${remaining} item, estimasi ${formatDurationCompact(etaMs)}. Perkiraan selesai ${formatClockTime(Date.now() + etaMs)}.`
       : "Estimasi batch akan muncul setelah item pertama selesai.";
   }
 
@@ -3020,10 +3203,11 @@
     const content = typeof template === "object" ? template.content : template;
 
     // Get selected negative template if any
-    const negTemplate =
-      typeof template === "object" && template.negativeId !== undefined
-        ? state.negativeTemplates[template.negativeId]
-        : null;
+    const negId = typeof template === "object" ? template.negativeId : undefined;
+    const negTemplate = negId !== undefined && negId >= 0 && negId < state.negativeTemplates.length
+      ? state.negativeTemplates[negId]
+      : null;
+    const negText = negTemplate ? (typeof negTemplate === "object" ? negTemplate.content : negTemplate) : null;
 
     const hasAnySelection = Object.keys(state.selectedPlaceholders).some(
       (key) => state.selectedPlaceholders[key]?.length > 0,
@@ -3056,8 +3240,8 @@
 
     // Show negative preview
     if (previewNeg) {
-      if (negTemplate) {
-        previewNeg.textContent = `Negative: ${negTemplate}`;
+      if (negText) {
+        previewNeg.textContent = `Negative: ${negText}`;
         previewNeg.style.display = "block";
         previewNeg.title = previewNeg.textContent;
       } else {
@@ -3097,7 +3281,17 @@
       state.currentQueueIndex < state.queue.length;
 
     if (applyBtn) applyBtn.disabled = !hasAnySelection;
-    if (applyBothBtn) applyBothBtn.disabled = !hasAnySelection;
+    // Pos+Neg: enabled when there's a selection AND the selected template has a valid negative link
+    if (applyBothBtn) {
+      const firstTpl = hasTemplates ? state.templates[state.selectedTemplates[0]] : null;
+      const negId = firstTpl && typeof firstTpl === "object" ? firstTpl.negativeId : undefined;
+      const hasValidNeg = negId !== undefined && negId >= 0 && negId < state.negativeTemplates.length;
+      applyBothBtn.disabled = !hasAnySelection;
+      applyBothBtn.title = hasValidNeg
+        ? "Apply positive + linked negative prompt"
+        : "Apply both — no negative template linked (edit template to link one)";
+      applyBothBtn.style.opacity = hasAnySelection && !hasValidNeg ? "0.5" : "";
+    }
     if (addToQueueBtn) addToQueueBtn.disabled = !hasAnySelection;
     if (startBtn) {
       startBtn.disabled = !canStart || state.isQueuePaused;
@@ -3456,6 +3650,32 @@
         });
         saveTemplates();
         renderTemplates();
+      });
+
+    // Template mode tabs (Positive / Negative)
+    document
+      .getElementById("nai-ext-template-mode-tabs")
+      ?.addEventListener("click", (e) => {
+        const tab = e.target.closest("[data-template-mode]");
+        if (!tab) return;
+        const mode = tab.dataset.templateMode;
+        document.querySelectorAll("#nai-ext-template-mode-tabs .nai-ext-tab").forEach((t) => t.classList.remove("active"));
+        tab.classList.add("active");
+        document.getElementById("nai-ext-positive-view").style.display = mode === "positive" ? "" : "none";
+        document.getElementById("nai-ext-negative-view").style.display = mode === "negative" ? "" : "none";
+      });
+
+    // Add negative template button
+    document
+      .getElementById("nai-ext-add-neg-template")
+      ?.addEventListener("click", () => {
+        const name = prompt("Name for negative template (optional):");
+        if (name === null) return;
+        const text = prompt("Enter negative prompt text:");
+        if (text === null || !text.trim()) return;
+        state.negativeTemplates.push({ content: text.trim(), name: name.trim() });
+        saveNegativeTemplates();
+        renderNegativeTemplates();
       });
 
     // Add placeholder value button
@@ -3928,8 +4148,10 @@
     if (includeNegative) {
       const negId =
         typeof template === "object" ? template.negativeId : undefined;
-      if (negId !== undefined && state.negativeTemplates[negId]) {
-        NovelAI.setNegativePrompt(state.negativeTemplates[negId]);
+      if (negId !== undefined && negId >= 0 && negId < state.negativeTemplates.length) {
+        const nt = state.negativeTemplates[negId];
+        const negText = typeof nt === "object" ? nt.content : nt;
+        if (negText) NovelAI.setNegativePrompt(negText);
       }
     }
   }
@@ -4393,9 +4615,11 @@
         savePlaceholders();
         saveCategories();
         saveSettings();
+        saveNegativeTemplates();
 
         renderCategoryTabs();
         renderTemplates();
+        renderNegativeTemplates();
         renderPlaceholderTabs();
         renderPlaceholders();
         updateButtonStates();
@@ -4464,6 +4688,7 @@
 
         renderCategoryTabs();
         renderTemplates();
+        renderNegativeTemplates();
         renderPlaceholderTabs();
         renderPlaceholders();
         renderQueue();

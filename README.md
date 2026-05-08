@@ -2,7 +2,7 @@
 
 A Tampermonkey userscript that adds a prompt studio panel to [NovelAI](https://novelai.net/image). Manage templates, placeholders, composition presets, and batch queues — all without leaving the page.
 
-**Current version:** 3.3.1
+**Current version:** 3.5.4
 
 ---
 
@@ -89,6 +89,24 @@ Legacy keys (`v2`, `nai_ext_artists`) are auto-migrated on first run.
 | `background dataset` | No-character mode | V4.5+ |
 | `rating:general` | Content rating | V4+ |
 | `year XXXX` | Era-specific style | V3+ |
+
+### Quality Tags by Model
+
+| Model | Quality Tags |
+|---|---|
+| V4.5 Full | `masterpiece, very aesthetic, no text` |
+| V4.5 Curated | `masterpiece, no text, -0.8::feet::, rating:general` |
+| V4 Full | `no text, best quality, very aesthetic, absurdres` |
+| V4 Curated | `amazing quality, very aesthetic, absurdres` |
+| V3 | `best quality, amazing quality, very aesthetic, absurdres` |
+
+### Anlas Costs (key extras)
+
+| Fitur | Biaya |
+|---|---|
+| Vibe Transfer ke-5+ | +2 Anlas per vibe per image |
+| Precise Reference | +5 Anlas per reference per image |
+| V4.5 Full (Opus plan) | **0 Anlas** (gratis dalam kondisi normal) |
 
 ---
 

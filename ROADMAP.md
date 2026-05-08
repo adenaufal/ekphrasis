@@ -10,6 +10,8 @@
 | v3.1.0 | Jan 2026 | Minor fixes and polish |
 | v3.2.3 | Mar 2026 | Batch Raw Import modal |
 | v3.3.0 | Mar 2026 | Framing rework → Composition Bundles (flat grid, append-only, 15 named bundles) |
+| v3.3.1 | Mar 2026 | Minor polish |
+| v3.5.4 | May 2026 | Art style presets (STYLE_PRESETS), negative template storage, queue state persistence |
 
 All v1–v3 features are complete. See git history for details.
 
@@ -17,8 +19,17 @@ All v1–v3 features are complete. See git history for details.
 
 ## 🚀 Phase 4: Planned
 
+### 🔴 Active (in-progress)
+- [ ] **Negative Template UI** — CRUD tab + linking positive→negative, tombol Both fungsional (lihat `todo.md`)
+- [ ] **T5 Token Counter** — live counter di dekat prompt input (V4+ limit ~512 T5 tokens)
+- [ ] **Model-Aware Quality Tags** — auto-swap quality tags saat model berubah:
+  - V4.5 Full: `masterpiece, very aesthetic, no text`
+  - V4.5 Curated: `masterpiece, no text, -0.8::feet::, rating:general`
+  - V4 Full: `no text, best quality, very aesthetic, absurdres`
+  - V3: `best quality, amazing quality, very aesthetic, absurdres`
+
 ### Queue Enhancements
-- [ ] Estimated Anlas cost calculator
+- [ ] **Estimated Anlas cost calculator** — perlu memperhitungkan: base cost, Vibe Transfer (+2 Anlas ab vibe ke-5), Precise Reference (+5 Anlas per reference per image), Opus free gen (V4.5 Full = 0 Anlas)
 - [ ] Preview combinations before queuing
 - [ ] Random delay range between generations
 - [ ] Rate limiting protection
@@ -26,18 +37,23 @@ All v1–v3 features are complete. See git history for details.
 - [x] Bulk import prompts from text file (v3.2.3 — Batch Raw Import modal)
 - [ ] CSV import with columns for each placeholder (planned: Layer 3 — per-row template+placeholder pairing)
 - [ ] Paired Queue mode: zip templates 1-to-1 with placeholder values instead of cross-product permutations (Layer 2)
+- [ ] N-images-per-call optimization: generate 2–4 images per queue item → hemat call overhead
 - [ ] Export queue to file for backup
 - [ ] Queue history (view past runs, re-queue, export)
 
 ### Generation Features
 - [ ] Auto-save generated images locally (custom naming, folder structure)
 - [ ] Seed management: save/restore, random toggle, seed history, seed lock
+- [ ] Sampler Preset Manager — simpan kombinasi sampler + steps + guidance dengan nama (misal: "Fast" = Euler 20 step, "Quality" = DPM++ 2M SDE 28 step)
 
 ### NovelAI-Specific
-- [ ] Art style & medium presets (art movements, traditional media, digital techniques, year-based styles)
+- [ ] Art style & medium presets UI — STYLE_PRESETS sudah ada di kode, tinggal buat UI-nya
 - [ ] Character reference sheet generator (multiple views, turnaround, expression sheet)
-- [ ] Dataset tag toggles: `fur dataset`, `background dataset`
-- [ ] Rating tag quick selector
+- [ ] Dataset tag toggles: `fur dataset` (V4+), `background dataset` (V4.5+)
+- [ ] Rating tag quick selector: `rating:general`, `rating:sensitive`, dll
+- [ ] **Precise Reference Image Library** — save/load reference images beserta nilai Info Extracted + Strength; tracker biaya +5 Anlas/ref/image
+- [ ] **Vibe Transfer Library** — simpan reference images yang sering dipakai beserta parameter IE + Strength, quick-apply ke generation
+- [ ] Multi-character Interaction Builder — visual builder untuk syntax `base | char1 | char2` + dropdown action tags (`source#action`, `target#action`, `mutual#action`)
 
 ---
 
@@ -78,4 +94,4 @@ All v1–v3 features are complete. See git history for details.
 
 ---
 
-*Last updated: March 2026 (v3.2.3)*
+*Last updated: May 2026 (v3.5.4) — analysis based on live NAI website + Context7 docs*

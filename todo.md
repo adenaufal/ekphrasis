@@ -1,62 +1,40 @@
-# Todo — Negative Prompt Management
+# Todo — Ekphrasis v3.6.0+
 
-Supaya tombol **Both** di Quick Apply bisa berfungsi, user perlu bisa:
-1. Membuat/mengelola negative templates
-2. Menghubungkan positive template ke negative template (`negativeId`)
-
----
-
-## Status Saat Ini
+## ✅ Step 1: Negative Template UI — SELESAI (v3.6.0)
 
 | Komponen | Status |
 |---|---|
-| Storage key `nai_ext_negative_templates_v3` | ✅ Ada |
-| `state.negativeTemplates[]` | ✅ Ada |
-| `template.negativeId` field | ✅ Ada (di schema) |
-| `NovelAI.setNegativePrompt()` | ✅ Ada |
-| Preview negative di footer | ✅ Ada |
-| CSS `.nai-ext-neg-template-item` | ✅ Ada (stub) |
-| UI tambah/edit/hapus negative template | ❌ Belum ada |
-| UI link template → negativeId | ❌ Belum ada |
+| Storage key `nai_ext_negative_templates_v3` | ✅ |
+| `state.negativeTemplates[]` | ✅ |
+| Tab Positive/Negative di Templates panel | ✅ |
+| CRUD negative templates (add/edit/delete) | ✅ |
+| Link template → negativeId via modal edit | ✅ |
+| Badge "N" di positive template list | ✅ |
+| Index-shift safety on delete | ✅ |
+| Preview negative di footer | ✅ |
+| `applyPrompt()` graceful fallback | ✅ |
+| "Both" button tooltip when no neg linked | ✅ |
+| `renderNegativeTemplates()` di init & import | ✅ |
 
 ---
 
-## Task
+## Step 2: T5 Token Counter + Model-Aware Quality Tags
 
-### 1. Tab / Panel Negative Templates
-- [ ] Tambah tab "Negative" di sidebar (sejajar dengan tab Templates/Placeholders)
-- [ ] Render daftar `state.negativeTemplates` — pakai class `.nai-ext-neg-template-item` yang sudah ada CSS-nya
-- [ ] Tombol **+ Add** → modal input teks negative prompt baru
-- [ ] Inline edit / delete per item
-- [ ] Simpan ke storage setelah setiap perubahan
-
-### 2. Link Template ke Negative Template
-- [ ] Di modal edit template (positive), tambah dropdown **"Linked Negative"**
-  - Opsi: `(none)` + semua nama negative template yang ada
-  - Saat dipilih, set `template.negativeId = index` yang sesuai
-- [ ] Tampilkan indikator kecil di list template jika sudah ada link (misal: ikon `N` kecil)
-
-### 3. Validasi & Edge Case
-- [ ] Jika `negativeId` menunjuk index yang tidak ada (setelah delete), graceful fallback — tombol Both tetap apply positive saja
-- [ ] Update preview negatif di footer saat template dengan `negativeId` dipilih (sudah ada, pastikan tidak rusak)
-
-### 4. UX Polish
-- [ ] Jika template dipilih tapi tidak punya `negativeId`, tombol **Both** tetap visible tapi bisa diberi tooltip "No negative linked"
-  - Atau: disable Both + ganti warnanya jika tidak ada link (opsional)
+- [ ] Live T5 token count display near prompt textarea (~512 limit)
+- [ ] Model selection change → auto-suggest quality tags per model:
+  - V4.5 Full: `masterpiece, very aesthetic, no text`
+  - V4.5 Curated: `masterpiece, no text, -0.8::feet::, rating:general`
+  - V4 Full: `no text, best quality, very aesthetic, absurdres`
+  - V4 Curated: `amazing quality, very aesthetic, absurdres`
+  - V3: `best quality, amazing quality, very aesthetic, absurdres`
+- [ ] Build UI for existing `STYLE_PRESETS` in code
 
 ---
 
-## Urutan Pengerjaan yang Disarankan
+## Step 3: Anlas Calculator
 
-1. Task 1 dulu (CRUD negative templates) → user bisa bikin isi negative templates
-2. Task 2 (linking) → baru Both bisa berfungsi end-to-end
-3. Task 3 & 4 finishing
+- [ ] Track Precise Reference count (+5 Anlas each)
+- [ ] Track Vibe Transfer count (+2 Anlas for 5th+)
+- [ ] Opus plan mode: V4.5 Full = 0 Anlas base
+- [ ] Display estimated Anlas per generation in footer
 
----
-
-## Catatan Teknis
-
-- `state.negativeTemplates` adalah **array of string** (bukan objek), jadi `negativeId` = index integer
-- ⚠️ **WASPADA:** Saat hapus negative template, semua `template.negativeId` yang nilainya > index yang dihapus harus di-shift — kalau tidak, linking akan salah arah diam-diam tanpa error
-- ⚠️ **WASPADA:** Tidak ada validasi saat load — kalau `negativeId` menunjuk index yang tidak ada, `Both` diam-diam tidak apply negative (silent fail, susah di-debug)
-- Solusi jangka panjang: refactor ke ID-based (string UUID) agar lebih robust — tapi ini opsional/fase berikutnya
