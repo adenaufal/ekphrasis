@@ -40,26 +40,6 @@
   };
 
   // ============================================
-  // COMPOSITION BUNDLES
-  // ============================================
-  const COMPOSITION_BUNDLES = [
-    { name: "Headshot Drama",    tags: ["extreme close-up", "from below", "face focus"] },
-    { name: "Clean Portrait",    tags: ["bust shot", "front view", "face focus"] },
-    { name: "3/4 Portrait",      tags: ["upper body", "three-quarter view"] },
-    { name: "Cowboy Classic",    tags: ["cowboy shot", "front view"] },
-    { name: "Full Body Flat",    tags: ["full body", "front view"] },
-    { name: "Full Body Heroic",  tags: ["full body", "from below"] },
-    { name: "Low Angle Power",   tags: ["cowboy shot", "from below", "dutch angle"] },
-    { name: "From Behind",       tags: ["from behind", "upper body"] },
-    { name: "Over Shoulder POV", tags: ["pov", "from behind"] },
-    { name: "Bird's Eye",        tags: ["from above", "bird's-eye view"] },
-    { name: "Worm's Eye",        tags: ["from below", "worm's-eye view"] },
-    { name: "Wide Scene",        tags: ["wide shot", "panoramic view"] },
-    { name: "Action Dynamic",    tags: ["cowboy shot", "dutch angle", "from side"] },
-    { name: "Intimate Close",    tags: ["close-up", "eye focus"] },
-    { name: "POV Encounter",     tags: ["pov", "front view"] },
-  ];
-
   // ============================================
   // ART STYLE PRESETS
   // ============================================
@@ -1518,6 +1498,9 @@
     },
 
     enforceFreeSafeSteps(maxSteps = CONFIG.FREE_SAFE_MAX_STEPS) {
+      // FREE-safe mode behavior: ONLY caps to 28 if you're OVER 28.
+      // If current = 12 steps, stays 12. If current = 50, caps to 28.
+      // This is a safety net for Opus free-gen limit, NOT a force-to-28.
       const input = this.getStepsInput();
       if (!input) return { ok: false, reason: "steps-input-not-found" };
 
@@ -2015,31 +1998,6 @@
             </div>
 
             <div class="nai-ext-body">
-                <!-- Syntax Reference Section -->
-                <div class="nai-ext-section" id="nai-ext-syntax-section">
-                    <div class="nai-ext-section-header collapsible">
-                        <span class="nai-ext-section-icon">📚</span>
-                        <span>SYNTAX GUIDE</span>
-                    </div>
-                    <div class="nai-ext-section-content" style="padding:8px;background:#f9f9f9;border-radius:0;font-size:10px;line-height:1.5;">
-                        <div style="margin-bottom:8px;">
-                            <strong style="display:block;margin-bottom:3px;">🏷️ Placeholders</strong>
-                            <code style="background:#fff;padding:3px 5px;border:1px solid #e0e0e0;display:block;margin:3px 0;font-size:9px;">{artist}, {character}, {style}</code>
-                            <span style="color:#666;">Select values from tabs → inserted on Apply/Queue</span>
-                        </div>
-                        <div style="margin-bottom:8px;">
-                            <strong style="display:block;margin-bottom:3px;">⚖️ Weights (V4.5)</strong>
-                            <code style="background:#fff;padding:3px 5px;border:1px solid #e0e0e0;display:block;margin:3px 0;font-size:9px;">3::tag:: -1::tag::</code>
-                            <span style="color:#666;">Numerical emphasis. Use in templates.</span>
-                        </div>
-                        <div>
-                            <strong style="display:block;margin-bottom:3px;">🎲 Randomizer (RAND ON)</strong>
-                            <code style="background:#fff;padding:3px 5px;border:1px solid #e0e0e0;display:block;margin:3px 0;font-size:9px;">||opt1|opt2|opt3||</code>
-                            <span style="color:#666;">When enabled: Apply→picks 1, Queue→expands all</span>
-                        </div>
-                    </div>
-                </div>
-
                 <!-- Templates Section -->
                 <div class="nai-ext-section" id="nai-ext-templates-section">
                     <div class="nai-ext-section-header collapsible">
@@ -2118,16 +2076,6 @@
                     </div>
                 </div>
 
-                <!-- Composition Section (flat grid) -->
-                <div class="nai-ext-section" id="nai-ext-framing-section">
-                    <div class="nai-ext-section-header collapsible">
-                        <span class="nai-ext-section-icon">📐</span>
-                        <span>COMPOSITION</span>
-                    </div>
-                    <div class="nai-ext-section-content">
-                        <div class="nai-ext-quick-tags" id="nai-ext-composition-tags"></div>
-                    </div>
-                </div>
             </div>
 
             <!-- Fixed Footer: Apply + Queue + Settings -->
@@ -2599,15 +2547,7 @@
     container.innerHTML = html;
   }
 
-  function renderCompositionBundles() {
-    const container = document.getElementById("nai-ext-composition-tags");
-    if (!container) return;
-    container.innerHTML = COMPOSITION_BUNDLES
-      .map((b, i) =>
-        `<span class="nai-ext-quick-tag" data-bundle="${i}" title="${b.tags.join(", ")}">${b.name}</span>`
-      )
-      .join("");
-  }
+
 
   function updateWeightEditor() {
     const editor = document.getElementById("nai-ext-weight-editor");
@@ -3468,16 +3408,7 @@
         updateButtonStates();
       });
 
-    // Composition bundles — append-only, no toggle
-    document
-      .getElementById("nai-ext-composition-tags")
-      ?.addEventListener("click", (e) => {
-        if (e.target.classList.contains("nai-ext-quick-tag")) {
-          const idx = parseInt(e.target.dataset.bundle, 10);
-          const bundle = COMPOSITION_BUNDLES[idx];
-          if (bundle) appendTags(bundle.tags);
-        }
-      });
+
 
     // Randomizer: Pick Random & Apply
     document
@@ -4290,7 +4221,6 @@
         renderTemplates();
         renderPlaceholderTabs();
         renderPlaceholders();
-        renderCompositionBundles();
         renderQueue();
         updateButtonStates();
         updateQueueStatus();
