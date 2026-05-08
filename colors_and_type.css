@@ -1,0 +1,185 @@
+/* ===========================================================
+   Ekphrasis — Colors & Typography Tokens
+   ===========================================================
+   Canonical theme is dark. Light deferred to v1.1.
+   Source of truth: reference/BRAND.md
+   =========================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
+:root {
+  /* ─── Type stack ───────────────────────────────────────── */
+  --ekp-font-mono: "IBM Plex Mono", "JetBrains Mono", "Menlo", "Consolas", monospace;
+  --ekp-font-sans: "IBM Plex Sans", "Inter", system-ui, -apple-system, sans-serif;
+
+  /* ─── Type scale (base 13px) ───────────────────────────── */
+  --ekp-text-2xs: 10px;
+  --ekp-text-xs:  11px;
+  --ekp-text-sm:  12px;
+  --ekp-text-base: 13px;
+  --ekp-text-md:  14px;
+  --ekp-text-lg:  16px;
+  --ekp-text-xl:  20px;
+
+  /* ─── Line heights ─────────────────────────────────────── */
+  --ekp-leading-tight: 1.3;   /* UI labels, button text */
+  --ekp-leading-normal: 1.5;  /* body text, template content */
+  --ekp-leading-loose: 1.65;  /* documentation prose */
+
+  /* ─── Weights (no bold) ────────────────────────────────── */
+  --ekp-weight-regular:  400;
+  --ekp-weight-medium:   500;
+  --ekp-weight-semibold: 600;
+
+  /* ─── Surfaces — ascending elevation ───────────────────── */
+  --ekp-bg-base:      #0E0E10;  /* outermost, panel backdrop */
+  --ekp-bg-surface:   #16161A;  /* default panel surface */
+  --ekp-bg-elevated:  #1E1E24;  /* modals, popovers, command palette */
+  --ekp-bg-input:     #0A0A0C;  /* input fields — slightly recessed */
+  --ekp-bg-hover:     #22222A;  /* hover state on interactive surfaces */
+  --ekp-bg-active:    #2A2A33;  /* active/pressed state */
+
+  /* ─── Borders ──────────────────────────────────────────── */
+  --ekp-border:        #2A2A30;
+  --ekp-border-strong: #3A3A42;
+  --ekp-border-accent: var(--ekp-accent);
+
+  /* ─── Foreground ───────────────────────────────────────── */
+  --ekp-fg-primary:    #EDEDF0;  /* ~14.2:1 on #0E0E10 */
+  --ekp-fg-muted:      #B4B4BD;  /* ~8.5:1 on #16161A (was #9A9AA3 ~5.8:1) */
+  --ekp-fg-subtle:     #8B8B96;  /* ~5.8:1 on #16161A (was #6A6A73 ~3.2:1) */
+  --ekp-fg-inverse:    #0E0E10;
+
+  /* ─── Accent (single) ──────────────────────────────────── */
+  --ekp-accent:        #5FBFA8;  /* muted teal */
+  --ekp-accent-hover:  #6FCFB8;
+  --ekp-accent-active: #4FAF98;
+  --ekp-accent-fg:     #0A1F1A;
+
+  /* ─── Status — used sparingly ──────────────────────────── */
+  --ekp-success:       #6EC78B;
+  --ekp-warning:       #E0B85C;
+  --ekp-error:         #E07B7B;
+  --ekp-info:          #7BB5E0;
+
+  /* ─── Focus ring ───────────────────────────────────────── */
+  --ekp-focus-ring: 0 0 0 2px rgba(95, 191, 168, 0.4);
+
+  /* ─── Spacing (4px base) ───────────────────────────────── */
+  --ekp-space-0: 0;
+  --ekp-space-1: 2px;
+  --ekp-space-2: 4px;
+  --ekp-space-3: 6px;
+  --ekp-space-4: 8px;
+  --ekp-space-5: 12px;
+  --ekp-space-6: 16px;
+  --ekp-space-7: 24px;
+  --ekp-space-8: 32px;
+
+  /* ─── Radii ────────────────────────────────────────────── */
+  --ekp-radius-sm: 3px;
+  --ekp-radius-md: 5px;
+  --ekp-radius-lg: 8px;
+  --ekp-radius-pill: 9999px;
+
+  /* ─── Motion ───────────────────────────────────────────── */
+  --ekp-duration-fast: 100ms;
+  --ekp-duration-base: 150ms;
+  --ekp-duration-slow: 250ms;
+  --ekp-easing: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ─── Z-index scale ────────────────────────────────────── */
+  --ekp-z-base: 1;
+  --ekp-z-panel: 100;
+  --ekp-z-dropdown: 200;
+  --ekp-z-tooltip: 300;
+  --ekp-z-modal: 400;
+  --ekp-z-toast: 500;
+  --ekp-z-command-palette: 600;
+
+  /* ─── Shadow ───────────────────────────────────────────── */
+  --ekp-shadow-modal: 0 20px 40px rgba(0, 0, 0, 0.5);
+  --ekp-shadow-dropdown: 0 8px 24px rgba(0, 0, 0, 0.4);
+
+  /* ─── Semantic typography roles ────────────────────────── */
+  --ekp-h1-family: var(--ekp-font-mono);
+  --ekp-h1-size: var(--ekp-text-xl);
+  --ekp-h1-weight: var(--ekp-weight-semibold);
+  --ekp-h1-leading: var(--ekp-leading-tight);
+
+  --ekp-h2-family: var(--ekp-font-sans);
+  --ekp-h2-size: var(--ekp-text-md);
+  --ekp-h2-weight: var(--ekp-weight-semibold);
+  --ekp-h2-leading: var(--ekp-leading-tight);
+
+  --ekp-h3-family: var(--ekp-font-mono);
+  --ekp-h3-size: var(--ekp-text-2xs);
+  --ekp-h3-weight: var(--ekp-weight-medium);
+  --ekp-h3-leading: var(--ekp-leading-tight);
+  --ekp-h3-tracking: 1.5px;
+  --ekp-h3-transform: uppercase;
+
+  --ekp-body-family: var(--ekp-font-sans);
+  --ekp-body-size: var(--ekp-text-base);
+  --ekp-body-weight: var(--ekp-weight-regular);
+  --ekp-body-leading: var(--ekp-leading-normal);
+
+  --ekp-code-family: var(--ekp-font-mono);
+  --ekp-code-size: var(--ekp-text-base);
+  --ekp-code-weight: var(--ekp-weight-regular);
+
+  --ekp-label-family: var(--ekp-font-mono);
+  --ekp-label-size: var(--ekp-text-xs);
+  --ekp-label-weight: var(--ekp-weight-medium);
+}
+
+/* ─── Semantic role classes ──────────────────────────────── */
+.ekp-h1 {
+  font-family: var(--ekp-h1-family);
+  font-size: var(--ekp-h1-size);
+  font-weight: var(--ekp-h1-weight);
+  line-height: var(--ekp-h1-leading);
+  color: var(--ekp-fg-primary);
+  letter-spacing: 0;
+}
+.ekp-h2 {
+  font-family: var(--ekp-h2-family);
+  font-size: var(--ekp-h2-size);
+  font-weight: var(--ekp-h2-weight);
+  line-height: var(--ekp-h2-leading);
+  color: var(--ekp-fg-primary);
+}
+.ekp-h3 {
+  font-family: var(--ekp-h3-family);
+  font-size: var(--ekp-h3-size);
+  font-weight: var(--ekp-h3-weight);
+  line-height: var(--ekp-h3-leading);
+  letter-spacing: var(--ekp-h3-tracking);
+  text-transform: var(--ekp-h3-transform);
+  color: var(--ekp-fg-muted);
+}
+.ekp-body {
+  font-family: var(--ekp-body-family);
+  font-size: var(--ekp-body-size);
+  font-weight: var(--ekp-body-weight);
+  line-height: var(--ekp-body-leading);
+  color: var(--ekp-fg-primary);
+}
+.ekp-code, code.ekp {
+  font-family: var(--ekp-code-family);
+  font-size: var(--ekp-code-size);
+  font-weight: var(--ekp-code-weight);
+  color: var(--ekp-fg-primary);
+  background: var(--ekp-bg-input);
+  padding: 1px 5px;
+  border-radius: var(--ekp-radius-sm);
+}
+.ekp-label {
+  font-family: var(--ekp-label-family);
+  font-size: var(--ekp-label-size);
+  font-weight: var(--ekp-label-weight);
+  color: var(--ekp-fg-muted);
+}
+.ekp-muted    { color: var(--ekp-fg-muted); }
+.ekp-subtle   { color: var(--ekp-fg-subtle); }
+.ekp-accent   { color: var(--ekp-accent); }
