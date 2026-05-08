@@ -3,7 +3,7 @@
 // @namespace    ekphrasis
 // @version      4.0.0
 // @description  Prompt studio for NovelAI — templates, weights, randomizers, and batch queue
-// @author       adenaufal
+// @author       lemburlab
 // @match        https://novelai.net/image*
 // @icon         https://novelai.net/icons/novelai-round.png
 // @grant        GM_addStyle
