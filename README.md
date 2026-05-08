@@ -1,8 +1,10 @@
-# Ekphrasis
+<p align="center">
+  <img src="assets/images/logo3.svg" alt="Ekphrasis" width="320" />
+</p>
 
 A Tampermonkey userscript that adds a prompt studio panel to [NovelAI](https://novelai.net/image). Manage templates, placeholders, composition presets, and batch queues — all without leaving the page.
 
-**Current version:** 3.8.0
+**Current version:** 4.0.0
 
 ---
 
@@ -27,7 +29,7 @@ Define named placeholder types (e.g. `artist`, `character`, `style`) and fill th
 Multiple values can be selected to generate all combinations via the queue.
 
 ### Negative Templates
-Create and manage a separate library of negative prompts. Link each positive template to a specific negative template via the Edit modal — the positive template will then show a red **N** badge. Use the **Pos+Neg** button to apply both at once.
+Create and manage a separate library of negative prompts. Link each positive template to a specific negative template via the Edit modal — the positive template will then show a red **N** badge. Use the **Pos+Neg** button to apply both at once. Links are stored by stable template ID, so deleting one negative template no longer shifts unrelated references.
 
 ### Quality Tags
 Strip **🏷️** di footer — pilih model (V4.5 Full, V4.5 Cur, V4 Full, V4 Cur, V3) lalu klik **+ Insert Quality Tags** untuk append quality tags yang sesuai langsung ke prompt NAI.
@@ -81,19 +83,17 @@ Apply a negative prompt alongside the main prompt using the **Both** button. Neg
 
 ---
 
-## Storage Keys
+## Storage Documents
 
-Data is stored in `localStorage` via Tampermonkey's `GM_getValue`/`GM_setValue`:
+Data is mirrored into three v4 documents via Tampermonkey's `GM_getValue`/`GM_setValue`:
 
-| Key | Content |
-|---|---|
-| `nai_ext_templates_v3` | Prompt templates |
-| `nai_ext_negative_templates_v3` | Negative prompt templates |
-| `nai_ext_placeholders` | Placeholder values per type |
-| `nai_ext_categories` | Category list |
-| `nai_ext_settings_v3` | Settings (delay, model, Anlas config, etc.) |
+| Key | Maps to | Content |
+|---|---|---|
+| `ekphrasis.library.v4` | `library.json` | Unified templates, placeholders, and categories |
+| `ekphrasis.settings.v4` | `settings.json` | Queue/model/anlas preferences plus Studio-only flags |
+| `ekphrasis.session.v4` | `session.json` | Last-used template and resumable queue state |
 
-Legacy keys (`v2`, `nai_ext_artists`) are auto-migrated on first run.
+Legacy `nai_ext_*` keys are read once and migrated in place on first run. Export now writes `library.json` directly, and import accepts full v4 libraries, partial v4 bundles, or legacy v3 exports.
 
 ---
 
@@ -131,6 +131,9 @@ Legacy keys (`v2`, `nai_ext_artists`) are auto-migrated on first run.
 | File | Purpose |
 |---|---|
 | `ekphrasis.user.js` | The userscript (single file, install this) |
+| `index.html` | Landing/install page |
+| `assets/images/logo1.svg` | Square icon mark |
+| `assets/images/logo3.svg` | Full `▌ekphrasis` wordmark (primary logo) |
 | `CHANGELOG.md` | Version history |
 | `ROADMAP.md` | Planned features |
 | `todo.md` | Active development tasks |

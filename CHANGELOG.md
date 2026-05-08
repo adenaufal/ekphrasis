@@ -6,6 +6,61 @@
 
 ---
 
+## [4.0.0] — May 2026
+
+### Added
+- **Storage schema v4 rollout** — Studio now persists the exact three-document contract from `SCHEMA.md`:
+  - `ekphrasis.library.v4` → `library.json`
+  - `ekphrasis.settings.v4` → `settings.json`
+  - `ekphrasis.session.v4` → `session.json`
+- **One-shot legacy migration** — first load now migrates `nai_ext_*` / `nai_ext_templates_v2` / `nai_ext_artists` into v4 documents while leaving the old keys untouched for rollback safety.
+- **Queue session metadata** — resumable queue state is now serialized as queue item objects (`pending` / `running` / `done` / `failed`) instead of the old flat queue snapshot.
+
+### Changed
+- **Export / import contract** — export now writes `library.json` directly. Import accepts full v4 libraries, partial v4 bundles, and legacy v3 exports.
+- **Unified template identity** — positive and negative templates are stored with stable `tpl_*` IDs plus `linkedNegativeId`, matching `SCHEMA.md`.
+- **Placeholder + category metadata** — placeholders now carry stable `ph_*` IDs and timestamps; categories carry stable `cat_*` IDs and survive rename without breaking references.
+- **Placeholder rename behavior** — renaming `{shortName}` now rewrites matching template content atomically, as required by the v4 schema.
+
+### Fixed
+- **Negative-template linking** — deleting a negative template now unlinks by stable template ID instead of shifting array indices.
+
+---
+
+## [3.9.1] — May 2026
+
+### Changed
+- **Brand design system applied** — full dark theme rollout across the userscript UI:
+  - CSS custom properties (`--ekp-*` tokens) for all colors, fonts, and radii, scoped under `#nai-ext-panel`
+  - IBM Plex Mono + IBM Plex Sans loaded via Google Fonts `@import`
+  - All inline JS-generated HTML styles replaced with `var(--ekp-*)` references
+- **`index.html` redesigned** — landing/install page rebuilt with brand dark theme (`#0E0E10` base), teal install button, 2-column features grid, and IBM Plex fonts
+- **SVG logos integrated** — `assets/images/logo1.svg` (square icon mark) and `logo3.svg` (full `▌ekphrasis` wordmark) replace the previous text-based logo in `index.html`; logos adjusted for transparent rendering (added `viewBox`, removed opaque background paths, counter fills matched to brand background)
+
+## [3.9.0] — May 2026
+
+### Added
+- **Negative template click-to-apply** — klik item di daftar Negative Template langsung mengisi NAI negative prompt field (sama seperti positive template).
+- **Anlas auto-detection** — `initAnlasAutoDetect()` polling setiap 4 detik + MutationObserver:
+  - **Vibe Transfer count** — auto-hitung dari thumbnail images di section "Vibe Transfer" NAI UI.
+  - **Precise Reference count** — auto-hitung dari "Reference Image" / "Precise Reference" section.
+  - **Opus Plan** — auto-detect dari plan badge/indicator di header/nav NAI.
+  - **Free generation** — jika NAI UI sendiri menampilkan "0" / "free" di cost indicator, badge Anlas otomatis di-highlight free.
+- `NovelAI.detectAnlasFactors()` — single function yang membaca semua faktor Anlas dari live DOM.
+- `initAnlasAutoDetect()` — setup polling interval + MutationObserver, debounced 700ms.
+
+### Fixed
+- **Negative prompt editor detection** — `getNegativePromptEditor()` sekarang handle dua layout NAI:
+  - **Separate layout** (dua editor visible) → `editors[1]` seperti sebelumnya.
+  - **Combined/tabs layout** (satu area + NAI tabs Positive/Negative) → deteksi via label proximity ("Undesired Content").
+- **`setNegativePrompt()` tabs layout** — jika hanya 1 editor (tab layout), otomatis click NAI's "Undesired Content" tab, set content, lalu restore ke positive tab setelah 250ms.
+
+### Added (helpers on `NovelAI` object)
+- `_findEditorNearLabel(labels)` — traverse DOM untuk ProseMirror di dalam container berlabel.
+- `_findNAIPromptTab(type)` — temukan tab button "Prompt" atau "Undesired Content" di NAI UI.
+
+---
+
 ## [3.8.0] — May 2026
 
 ### Added

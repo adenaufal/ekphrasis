@@ -4,7 +4,10 @@
 
 Single-file Tampermonkey userscript for NovelAI (`novelai.net/image`).
 **Entry point:** `ekphrasis.user.js`
-**Current version:** 3.3.1 | **Storage prefix:** `nai_ext_*`
+**Current version:** 4.0.0 | **Storage documents:** `ekphrasis.library.v4`, `ekphrasis.settings.v4`, `ekphrasis.session.v4`
+
+**Landing page:** `index.html` (brand dark theme, IBM Plex, teal accent `#5FBFA8`)
+**Logo assets:** `assets/images/logo1.svg` (square icon mark), `assets/images/logo2.svg` (wordmark only), `assets/images/logo3.svg` (full `▌ekphrasis` wordmark — primary logo)
 
 ## Versioning — WAJIB diupdate setiap ada perubahan
 
@@ -32,17 +35,15 @@ CONFIGURATION → PRESETS (framing/camera/focus) → STATE → UI BUILDERS → E
 
 Key globals: `CONFIG`, `state`, `FRAMING_PRESETS`, `CAMERA_ANGLE_PRESETS`, `FOCUS_PRESETS`
 
-## Storage Keys
+## Storage Documents
 
-| Key | Content |
-|-----|---------|
-| `nai_ext_templates_v3` | Prompt templates array |
-| `nai_ext_negative_templates_v3` | Negative prompt templates |
-| `nai_ext_placeholders` | `{ type: [values] }` map |
-| `nai_ext_categories` | Category list |
-| `nai_ext_settings_v3` | User settings (delay, quality preset, etc.) |
+| Key | Maps to | Content |
+|-----|---------|---------|
+| `ekphrasis.library.v4` | `library.json` | Unified `templates`, `placeholders`, `categories` |
+| `ekphrasis.settings.v4` | `settings.json` | Queue/model/anlas preferences plus Studio-only flags |
+| `ekphrasis.session.v4` | `session.json` | Queue resume data + `lastUsedTemplateId` |
 
-Legacy keys (`v2`, `nai_ext_artists`) are migrated on first run.
+Legacy keys (`nai_ext_*`, `nai_ext_templates_v2`, `nai_ext_artists`) are read for v3→v4 migration and then left in place for rollback safety.
 
 ## Key Concepts
 

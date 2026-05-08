@@ -4,69 +4,102 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ekphrasis — Prompt Studio for NovelAI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/svg+xml" href="assets/images/logo1.svg">
   <style>
+    :root {
+      --ekp-bg-base:      #0E0E10;
+      --ekp-bg-surface:   #16161A;
+      --ekp-bg-elevated:  #1E1E24;
+      --ekp-border:       #2A2A30;
+      --ekp-border-muted: #1E1E24;
+      --ekp-fg-primary:   #EDEDF0;
+      --ekp-fg-muted:     #9A9AA3;
+      --ekp-fg-subtle:    #6A6A73;
+      --ekp-accent:       #5FBFA8;
+      --ekp-accent-dim:   #4A9987;
+      --ekp-font-mono:    "IBM Plex Mono", "Consolas", monospace;
+      --ekp-font-sans:    "IBM Plex Sans", system-ui, sans-serif;
+      --ekp-radius-sm:    3px;
+      --ekp-radius-md:    5px;
+    }
+
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      background: #0f0f0f;
-      color: #e0e0e0;
+      font-family: var(--ekp-font-sans);
+      background: var(--ekp-bg-base);
+      color: var(--ekp-fg-primary);
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 40px 20px;
+      padding: 48px 20px;
     }
 
     .container {
-      max-width: 560px;
+      max-width: 580px;
       width: 100%;
       text-align: center;
     }
 
-    .badge {
-      display: inline-block;
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 1.5px;
-      text-transform: uppercase;
-      color: #888;
-      margin-bottom: 20px;
+    /* ─── Logo mark ─── */
+    .logo-icon {
+      display: block;
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 28px;
+    }
+
+    .logo-wordmark {
+      display: block;
+      width: 100%;
+      max-width: 460px;
+      height: auto;
+      margin: 0 auto 14px;
     }
 
     h1 {
-      font-size: 48px;
-      font-weight: 800;
-      letter-spacing: -1px;
-      color: #fff;
-      margin-bottom: 12px;
+      font-family: var(--ekp-font-mono);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--ekp-fg-muted);
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      margin-bottom: 14px;
     }
 
     .tagline {
+      font-family: var(--ekp-font-sans);
       font-size: 15px;
-      color: #888;
-      line-height: 1.6;
-      margin-bottom: 40px;
+      color: var(--ekp-fg-muted);
+      line-height: 1.65;
+      margin-bottom: 36px;
     }
 
+    /* ─── Install button ─── */
     .install-btn {
       display: inline-block;
-      padding: 16px 40px;
-      background: #fff;
-      color: #000;
-      font-size: 13px;
-      font-weight: 800;
-      letter-spacing: 1px;
+      padding: 12px 32px;
+      background: var(--ekp-accent);
+      color: #0A1F1A;
+      font-family: var(--ekp-font-mono);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
       text-transform: uppercase;
       text-decoration: none;
-      transition: background 0.15s, transform 0.15s;
+      border-radius: var(--ekp-radius-sm);
+      transition: background 0.15s, transform 0.1s;
       margin-bottom: 12px;
     }
 
     .install-btn:hover {
-      background: #e0e0e0;
-      transform: translateY(-2px);
+      background: var(--ekp-accent-dim);
+      transform: translateY(-1px);
     }
 
     .install-btn:active {
@@ -74,71 +107,111 @@
     }
 
     .install-note {
+      font-family: var(--ekp-font-mono);
       font-size: 11px;
-      color: #555;
-      margin-bottom: 56px;
+      color: var(--ekp-fg-subtle);
+      margin-bottom: 52px;
     }
 
     .install-note a {
-      color: #888;
+      color: var(--ekp-fg-muted);
       text-decoration: underline;
+      text-underline-offset: 2px;
     }
 
+    .install-note a:hover {
+      color: var(--ekp-accent);
+    }
+
+    /* ─── Features grid ─── */
     .features {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 2px;
+      gap: 1px;
       text-align: left;
       margin-bottom: 48px;
+      background: var(--ekp-border-muted);
+      border: 1px solid var(--ekp-border);
+      border-radius: var(--ekp-radius-md);
+      overflow: hidden;
     }
 
     .feature {
-      background: #1a1a1a;
+      background: var(--ekp-bg-surface);
       padding: 16px 18px;
+      transition: background 0.1s;
+    }
+
+    .feature:hover {
+      background: var(--ekp-bg-elevated);
     }
 
     .feature-title {
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.8px;
+      font-family: var(--ekp-font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1.2px;
       text-transform: uppercase;
-      color: #fff;
+      color: var(--ekp-accent);
       margin-bottom: 5px;
     }
 
     .feature-desc {
+      font-family: var(--ekp-font-sans);
       font-size: 12px;
-      color: #666;
-      line-height: 1.5;
+      color: var(--ekp-fg-muted);
+      line-height: 1.55;
     }
 
-    .footer {
+    .feature-desc code {
+      font-family: var(--ekp-font-mono);
       font-size: 11px;
-      color: #444;
+      color: var(--ekp-fg-primary);
+      background: var(--ekp-bg-elevated);
+      padding: 1px 4px;
+      border-radius: var(--ekp-radius-sm);
+    }
+
+    /* ─── Footer ─── */
+    .footer {
+      font-family: var(--ekp-font-mono);
+      font-size: 11px;
+      color: var(--ekp-fg-subtle);
     }
 
     .footer a {
-      color: #666;
+      color: var(--ekp-fg-muted);
       text-decoration: none;
     }
 
     .footer a:hover {
-      color: #999;
+      color: var(--ekp-accent);
+    }
+
+    /* ─── Divider ─── */
+    .divider {
+      width: 32px;
+      height: 1px;
+      background: var(--ekp-border);
+      margin: 0 auto 36px;
     }
 
     @media (max-width: 480px) {
-      h1 { font-size: 36px; }
+      .logo-wordmark { max-width: 320px; }
       .features { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <span class="badge">Tampermonkey Userscript</span>
-    <h1>Ekphrasis</h1>
-    <p class="tagline">Prompt studio for NovelAI — templates, placeholders,<br>composition presets, and batch queue.</p>
 
-    <a class="install-btn" href="./ekphrasis.user.js">⬇ Install Script</a>
+    <img class="logo-icon" src="assets/images/logo1.svg" alt="" aria-hidden="true">
+    <img class="logo-wordmark" src="assets/images/logo3.svg" alt="Ekphrasis">
+    <p class="tagline">Templates, placeholders, composition presets, and batch queue<br>— injected directly into NovelAI.</p>
+
+    <div class="divider"></div>
+
+    <a class="install-btn" href="./ekphrasis.user.js">↓ Install Script</a>
     <p class="install-note">
       Requires <a href="https://www.tampermonkey.net/" target="_blank" rel="noopener">Tampermonkey</a> (Chrome / Firefox / Edge / Safari).
       Click install, confirm, then open <strong>novelai.net/image</strong>.
@@ -151,11 +224,11 @@
       </div>
       <div class="feature">
         <div class="feature-title">Placeholders</div>
-        <div class="feature-desc">Define <code>{artist}</code>, <code>{character}</code>, and custom types. Select values to substitute at queue time.</div>
+        <div class="feature-desc">Define <code>{artist}</code>, <code>{character}</code>, and custom types. Resolved at queue time.</div>
       </div>
       <div class="feature">
         <div class="feature-title">Batch Queue</div>
-        <div class="feature-desc">Auto-generate all permutations of templates × placeholder combinations with a configurable delay.</div>
+        <div class="feature-desc">Auto-generate all permutations of templates × placeholders with a configurable delay.</div>
       </div>
       <div class="feature">
         <div class="feature-title">Framing Presets</div>
@@ -163,7 +236,7 @@
       </div>
       <div class="feature">
         <div class="feature-title">Randomizer</div>
-        <div class="feature-desc">Use <code>||opt1|opt2|opt3||</code> syntax to expand variants into separate queue entries automatically.</div>
+        <div class="feature-desc">Use <code>||opt1|opt2||</code> syntax to expand variants into separate queue entries automatically.</div>
       </div>
       <div class="feature">
         <div class="feature-title">Weight Syntax</div>
@@ -175,6 +248,7 @@
       <a href="./CHANGELOG.md">Changelog</a> &nbsp;·&nbsp;
       <a href="./ekphrasis.user.js">Raw script</a>
     </p>
+
   </div>
 </body>
 </html>

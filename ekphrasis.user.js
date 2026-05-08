@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ekphrasis
 // @namespace    ekphrasis
-// @version      3.8.0
+// @version      4.0.0
 // @description  Prompt studio for NovelAI — templates, weights, randomizers, and batch queue
 // @author       adenaufal
 // @match        https://novelai.net/image*
@@ -19,7 +19,11 @@
   // CONFIGURATION
   // ============================================
   const CONFIG = {
-    VERSION: "3.8.0",
+    VERSION: "4.0.0",
+    STORAGE_KEY_LIBRARY: "ekphrasis.library.v4",
+    STORAGE_KEY_SETTINGS_DOC: "ekphrasis.settings.v4",
+    STORAGE_KEY_SESSION: "ekphrasis.session.v4",
+    STORAGE_KEY_MIGRATED_V4: "ekphrasis.migrated.v4",
     STORAGE_KEY_TEMPLATES: "nai_ext_templates_v3",
     STORAGE_KEY_PLACEHOLDERS: "nai_ext_placeholders",
     STORAGE_KEY_CATEGORIES: "nai_ext_categories",
@@ -38,6 +42,27 @@
     FREE_SAFE_MAX_STEPS: 28,
     RANDOMIZER_DEFAULT_ENABLED: false,
   };
+
+  const DEFAULT_CATEGORY_PRESETS = [
+    { label: "general", color: "#7C8796" },
+    { label: "portraits", color: "#FF7A90" },
+    { label: "landscapes", color: "#5FA8D3" },
+  ];
+
+  const MODEL_STORAGE_KEY_MAP = {
+    v45_full: "v4-5-full",
+    v45_curated: "v4-5-curated",
+    v4_full: "v4-full",
+    v4_curated: "v4-curated",
+    v3: "v3",
+  };
+
+  const MODEL_UI_KEY_MAP = Object.fromEntries(
+    Object.entries(MODEL_STORAGE_KEY_MAP).map(([uiKey, storageKey]) => [
+      storageKey,
+      uiKey,
+    ]),
+  );
 
   // ============================================
   // ============================================
@@ -78,26 +103,71 @@
   };
 
   // ============================================
-  // STYLES - Clean Minimalist Light Theme
+  // STYLES - Ekphrasis Brand Dark Theme v1.0
   // ============================================
   const STYLES = `
-        /* Main Panel Container */
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
+        /* ============ DESIGN TOKENS ============ */
+        #nai-ext-panel {
+            --ekp-font-mono: "IBM Plex Mono", "JetBrains Mono", "Menlo", "Consolas", monospace;
+            --ekp-font-sans: "IBM Plex Sans", "Inter", system-ui, -apple-system, sans-serif;
+
+            --ekp-bg-base:      #0E0E10;
+            --ekp-bg-surface:   #16161A;
+            --ekp-bg-elevated:  #1E1E24;
+            --ekp-bg-input:     #0A0A0C;
+            --ekp-bg-hover:     #22222A;
+            --ekp-bg-active:    #2A2A33;
+
+            --ekp-border:        #2A2A30;
+            --ekp-border-strong: #3A3A42;
+
+            --ekp-fg-primary:    #EDEDF0;
+            --ekp-fg-muted:      #9A9AA3;
+            --ekp-fg-subtle:     #6A6A73;
+            --ekp-fg-inverse:    #0E0E10;
+
+            --ekp-accent:        #5FBFA8;
+            --ekp-accent-hover:  #6FCFB8;
+            --ekp-accent-active: #4FAF98;
+            --ekp-accent-fg:     #0A1F1A;
+
+            --ekp-success:       #6EC78B;
+            --ekp-warning:       #E0B85C;
+            --ekp-error:         #E07B7B;
+            --ekp-info:          #7BB5E0;
+
+            --ekp-focus-ring: 0 0 0 2px rgba(95, 191, 168, 0.4);
+
+            --ekp-radius-sm: 3px;
+            --ekp-radius-md: 5px;
+            --ekp-radius-lg: 8px;
+            --ekp-radius-pill: 9999px;
+
+            --ekp-duration-fast: 100ms;
+            --ekp-duration-base: 150ms;
+            --ekp-duration-slow: 250ms;
+            --ekp-easing: cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* ============ MAIN PANEL ============ */
         #nai-ext-panel {
             position: fixed;
             top: 80px;
             right: 20px;
             width: 360px;
             max-height: calc(100vh - 90px);
-            background: #ffffff;
-            border: 2px solid #1a1a1a;
-            border-radius: 0;
-            box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.1);
-            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--ekp-bg-surface);
+            border: 1px solid var(--ekp-border);
+            border-radius: var(--ekp-radius-md);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            font-family: var(--ekp-font-mono);
             font-size: 13px;
-            color: #1a1a1a;
+            color: var(--ekp-fg-primary);
             z-index: 10000;
             overflow: hidden;
-            transition: all 0.2s ease;
+            transition: all var(--ekp-duration-slow) var(--ekp-easing);
         }
 
         #nai-ext-panel.minimized {
@@ -115,32 +185,29 @@
 
         #nai-ext-panel.minimized #nai-ext-minimize {
             display: none;
-            color: #fff;
         }
 
         #nai-ext-panel.minimized #nai-ext-maximize {
             display: inline-block;
         }
 
-        /* Sembunyikan title text saat minimized, tampilkan hanya icon */
         #nai-ext-panel.minimized .nai-ext-title span:not(.nai-ext-title-icon) {
             display: none;
         }
 
-        /* Header jadi clickable area untuk restore saat minimized */
         #nai-ext-panel.minimized .nai-ext-header {
             cursor: pointer;
             padding: 8px 10px;
         }
 
-        /* Header */
+        /* ============ HEADER ============ */
         .nai-ext-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
             padding: 10px 14px;
-            background: #1a1a1a;
-            border-bottom: none;
+            background: var(--ekp-bg-base);
+            border-bottom: 1px solid var(--ekp-border);
             cursor: move;
             user-select: none;
         }
@@ -148,49 +215,51 @@
         .nai-ext-title {
             display: flex;
             align-items: center;
-            gap: 10px;
-            font-weight: 700;
-            font-size: 14px;
-            color: #ffffff;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
+            gap: 8px;
+            font-weight: 500;
+            font-size: 13px;
+            color: var(--ekp-fg-primary);
+            letter-spacing: 0;
+            font-family: var(--ekp-font-mono);
         }
 
         .nai-ext-title-icon {
-            font-size: 16px;
+            color: var(--ekp-accent);
+            font-size: 14px;
         }
 
         .nai-ext-controls {
             display: flex;
-            gap: 8px;
+            gap: 4px;
         }
 
         .nai-ext-btn-icon {
             background: transparent;
             border: none;
-            color: #888;
+            color: var(--ekp-fg-subtle);
             cursor: pointer;
             padding: 4px 6px;
-            border-radius: 0;
-            transition: all 0.15s;
-            font-size: 16px;
-            font-weight: bold;
+            border-radius: var(--ekp-radius-sm);
+            transition: background var(--ekp-duration-fast) var(--ekp-easing),
+                        color var(--ekp-duration-fast) var(--ekp-easing);
+            font-size: 14px;
+            line-height: 1;
         }
 
         .nai-ext-btn-icon:hover {
-            background: rgba(255, 255, 255, 0.1);
-            color: #fff;
+            background: var(--ekp-bg-hover);
+            color: var(--ekp-fg-primary);
         }
 
-        /* Body */
+        /* ============ BODY ============ */
         .nai-ext-body {
-            padding: 10px 12px;
+            padding: 8px 12px;
             overflow-y: auto;
             max-height: calc(100vh - 130px);
-            background: #ffffff;
+            background: var(--ekp-bg-surface);
         }
 
-        /* Sections */
+        /* ============ SECTIONS ============ */
         .nai-ext-section {
             margin-bottom: 12px;
             background: transparent;
@@ -208,25 +277,25 @@
             align-items: center;
             gap: 6px;
             margin-bottom: 8px;
-            padding-bottom: 6px;
-            font-weight: 700;
-            font-size: 11px;
+            padding-bottom: 5px;
+            font-weight: 500;
+            font-size: 10px;
             text-transform: uppercase;
             letter-spacing: 1.5px;
-            color: #1a1a1a;
-            border-bottom: 2px solid #1a1a1a;
+            color: var(--ekp-fg-muted);
+            border-bottom: 1px solid var(--ekp-border);
         }
 
         .nai-ext-section-icon {
-            font-size: 12px;
-            opacity: 0.8;
+            font-size: 11px;
+            opacity: 0.7;
         }
 
-        /* Template List */
+        /* ============ TEMPLATE LIST ============ */
         .nai-ext-template-list {
             display: flex;
             flex-direction: column;
-            gap: 3px;
+            gap: 2px;
             max-height: 180px;
             overflow-y: auto;
             margin-bottom: 8px;
@@ -236,31 +305,32 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 7px 10px;
-            background: #f8f8f8;
-            border-radius: 0;
+            padding: 6px 10px;
+            background: var(--ekp-bg-surface);
+            border-radius: var(--ekp-radius-sm);
             cursor: pointer;
-            transition: all 0.15s;
-            border: 1px solid #e0e0e0;
+            transition: background var(--ekp-duration-fast) var(--ekp-easing),
+                        border-color var(--ekp-duration-fast) var(--ekp-easing);
+            border: 1px solid var(--ekp-border);
         }
 
         .nai-ext-template-item:hover {
-            background: #f0f0f0;
-            border-color: #1a1a1a;
+            background: var(--ekp-bg-hover);
+            border-color: var(--ekp-border-strong);
         }
 
         .nai-ext-template-item.active {
-            background: #1a1a1a;
-            color: #ffffff;
-            border-color: #1a1a1a;
+            background: var(--ekp-bg-hover);
+            border-color: var(--ekp-accent);
+            color: var(--ekp-fg-primary);
         }
 
         .nai-ext-template-item.active .nai-ext-template-btn {
-            color: #888;
+            color: var(--ekp-fg-muted);
         }
 
         .nai-ext-template-item.active .nai-ext-template-btn:hover {
-            color: #fff;
+            color: var(--ekp-fg-primary);
         }
 
         .nai-ext-template-text {
@@ -269,14 +339,15 @@
             text-overflow: ellipsis;
             white-space: nowrap;
             font-size: 12px;
-            font-weight: 500;
+            font-weight: 400;
+            color: var(--ekp-fg-primary);
         }
 
         .nai-ext-template-actions {
             display: flex;
-            gap: 4px;
+            gap: 2px;
             opacity: 0;
-            transition: opacity 0.15s;
+            transition: opacity var(--ekp-duration-fast) var(--ekp-easing);
         }
 
         .nai-ext-template-item:hover .nai-ext-template-actions {
@@ -286,184 +357,183 @@
         .nai-ext-template-btn {
             background: transparent;
             border: none;
-            color: #888;
+            color: var(--ekp-fg-subtle);
             cursor: pointer;
-            padding: 2px 6px;
-            font-size: 12px;
-            transition: color 0.15s;
+            padding: 2px 5px;
+            font-size: 11px;
+            transition: color var(--ekp-duration-fast) var(--ekp-easing);
+            border-radius: var(--ekp-radius-sm);
         }
 
         .nai-ext-template-btn:hover {
-            color: #1a1a1a;
+            color: var(--ekp-fg-primary);
+            background: var(--ekp-bg-active);
         }
 
         .nai-ext-template-btn.delete:hover {
-            color: #dc2626;
+            color: var(--ekp-error);
         }
 
-        /* Artist Tags */
+        /* ============ TAGS / CHIPS ============ */
         .nai-ext-artist-container {
             display: flex;
             flex-wrap: wrap;
-            gap: 6px;
+            gap: 5px;
             margin-bottom: 8px;
         }
 
         .nai-ext-artist-tag {
             display: inline-flex;
             align-items: center;
-            gap: 5px;
-            padding: 5px 10px;
-            background: #ffffff;
-            border: 1.5px solid #1a1a1a;
-            border-radius: 0;
+            gap: 4px;
+            padding: 4px 8px;
+            background: var(--ekp-bg-input);
+            border: 1px solid var(--ekp-border);
+            border-radius: var(--ekp-radius-pill);
             font-size: 11px;
-            font-weight: 600;
+            font-weight: 400;
             cursor: pointer;
-            transition: all 0.15s;
+            transition: background var(--ekp-duration-fast) var(--ekp-easing),
+                        border-color var(--ekp-duration-fast) var(--ekp-easing),
+                        color var(--ekp-duration-fast) var(--ekp-easing);
             user-select: none;
-            text-transform: lowercase;
+            color: var(--ekp-fg-muted);
+            font-family: var(--ekp-font-mono);
         }
 
         .nai-ext-artist-tag:hover {
-            background: #f0f0f0;
+            background: var(--ekp-bg-hover);
+            border-color: var(--ekp-border-strong);
+            color: var(--ekp-fg-primary);
         }
 
         .nai-ext-artist-tag.selected {
-            background: #1a1a1a;
-            color: #ffffff;
+            background: var(--ekp-bg-active);
+            border-color: var(--ekp-accent);
+            color: var(--ekp-accent);
         }
 
         .nai-ext-artist-remove {
             margin-left: 2px;
             opacity: 0.5;
             font-size: 10px;
-            font-weight: bold;
         }
 
         .nai-ext-artist-remove:hover {
             opacity: 1;
-            color: #dc2626;
+            color: var(--ekp-error);
         }
 
         .nai-ext-artist-tag.selected .nai-ext-artist-remove:hover {
-            color: #fca5a5;
+            color: var(--ekp-error);
         }
 
-        /* Inputs */
+        /* ============ INPUTS ============ */
         .nai-ext-input-group {
             display: flex;
-            gap: 8px;
+            gap: 6px;
             margin-bottom: 8px;
         }
 
         .nai-ext-input {
             flex: 1;
-            padding: 7px 10px;
-            background: #ffffff;
-            border: 1.5px solid #d0d0d0;
-            border-radius: 0;
-            color: #1a1a1a;
+            padding: 6px 10px;
+            background: var(--ekp-bg-input);
+            border: 1px solid var(--ekp-border);
+            border-radius: var(--ekp-radius-sm);
+            color: var(--ekp-fg-primary);
             font-size: 12px;
-            font-weight: 500;
-            transition: border-color 0.15s;
+            font-weight: 400;
+            font-family: var(--ekp-font-mono);
+            transition: border-color var(--ekp-duration-fast) var(--ekp-easing);
         }
 
         .nai-ext-input:focus {
             outline: none;
-            border-color: #1a1a1a;
+            border-color: var(--ekp-accent);
+            box-shadow: var(--ekp-focus-ring);
         }
 
         .nai-ext-input::placeholder {
-            color: #999;
-            font-weight: 400;
+            color: var(--ekp-fg-subtle);
         }
 
         .nai-ext-textarea {
             width: 100%;
             min-height: 50px;
             padding: 8px 10px;
-            background: #ffffff;
-            border: 1.5px solid #d0d0d0;
-            border-radius: 0;
-            color: #1a1a1a;
+            background: var(--ekp-bg-input);
+            border: 1px solid var(--ekp-border);
+            border-radius: var(--ekp-radius-sm);
+            color: var(--ekp-fg-primary);
             font-size: 12px;
             resize: vertical;
-            font-family: inherit;
+            font-family: var(--ekp-font-mono);
+            line-height: 1.5;
         }
 
         .nai-ext-textarea:focus {
             outline: none;
-            border-color: #1a1a1a;
+            border-color: var(--ekp-accent);
+            box-shadow: var(--ekp-focus-ring);
         }
 
-        /* Buttons */
+        /* ============ BUTTONS ============ */
         .nai-ext-btn {
-            padding: 7px 14px;
-            background: #1a1a1a;
+            padding: 6px 14px;
+            background: var(--ekp-accent);
             border: none;
-            border-radius: 0;
-            color: #ffffff;
+            border-radius: var(--ekp-radius-sm);
+            color: var(--ekp-accent-fg);
             font-size: 11px;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
+            font-weight: 500;
+            letter-spacing: 0;
+            text-transform: none;
             cursor: pointer;
-            transition: all 0.15s;
+            font-family: var(--ekp-font-mono);
+            transition: background var(--ekp-duration-fast) var(--ekp-easing);
         }
 
         .nai-ext-btn:hover {
-            background: #333333;
-            transform: translateY(-1px);
+            background: var(--ekp-accent-hover);
         }
 
         .nai-ext-btn:active {
-            transform: translateY(0);
+            background: var(--ekp-accent-active);
         }
 
         .nai-ext-btn.secondary {
-            background: #ffffff;
-            color: #1a1a1a;
-            border: 1.5px solid #1a1a1a;
+            background: var(--ekp-bg-elevated);
+            color: var(--ekp-fg-primary);
+            border: 1px solid var(--ekp-border);
         }
 
         .nai-ext-btn.secondary:hover {
-            background: #f0f0f0;
+            background: var(--ekp-bg-hover);
+            border-color: var(--ekp-border-strong);
         }
 
         .nai-ext-btn.danger {
-            background: #dc2626;
+            background: transparent;
+            color: var(--ekp-error);
+            border: 1px solid var(--ekp-error);
         }
 
         .nai-ext-btn.danger:hover {
-            background: #b91c1c;
+            background: rgba(224, 123, 123, 0.12);
         }
 
         .nai-ext-btn.success {
-            background: #1a1a1a;
-            position: relative;
-        }
-
-        .nai-ext-btn.success::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            border: 2px solid #1a1a1a;
-            opacity: 0;
-            transition: opacity 0.15s;
+            background: var(--ekp-accent);
         }
 
         .nai-ext-btn.success:hover {
-            background: #333333;
+            background: var(--ekp-accent-hover);
         }
 
         .nai-ext-btn:disabled {
-            opacity: 0.4;
+            opacity: 0.35;
             cursor: not-allowed;
-            transform: none;
         }
 
         .nai-ext-btn-row {
@@ -476,17 +546,17 @@
             width: 100%;
         }
 
-        /* Queue Resume Banner */
+        /* ============ QUEUE RESUME BANNER ============ */
         .nai-ext-queue-resume-banner {
-            background: #fef3c7;
-            border: 1px solid #f59e0b;
-            border-radius: 6px;
+            background: rgba(224, 184, 92, 0.08);
+            border: 1px solid rgba(224, 184, 92, 0.3);
+            border-radius: var(--ekp-radius-sm);
             padding: 8px 10px;
             margin-bottom: 6px;
             font-size: 11px;
         }
         .nai-ext-resume-info {
-            color: #92400e;
+            color: var(--ekp-warning);
             margin-bottom: 6px;
             line-height: 1.4;
         }
@@ -495,11 +565,11 @@
             gap: 4px;
         }
 
-        /* Queue */
+        /* ============ QUEUE ============ */
         .nai-ext-queue-list {
             display: flex;
             flex-direction: column;
-            gap: 3px;
+            gap: 2px;
             max-height: 150px;
             overflow-y: auto;
             margin-bottom: 8px;
@@ -509,37 +579,37 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 6px 10px;
-            background: #f8f8f8;
-            border-radius: 0;
+            padding: 5px 10px;
+            background: var(--ekp-bg-surface);
+            border-radius: var(--ekp-radius-sm);
             font-size: 11px;
-            border: 1px solid #e0e0e0;
+            border: 1px solid var(--ekp-border);
+            color: var(--ekp-fg-muted);
         }
 
         .nai-ext-queue-item.current {
-            background: #1a1a1a;
-            color: #ffffff;
-            border-color: #1a1a1a;
+            background: var(--ekp-bg-hover);
+            color: var(--ekp-fg-primary);
+            border-color: var(--ekp-accent);
         }
 
         .nai-ext-queue-item.completed {
-            opacity: 0.4;
+            opacity: 0.35;
             text-decoration: line-through;
         }
 
         .nai-ext-queue-item.failed {
-            background: #fee2e2;
-            border-color: #dc2626;
-            color: #991b1b;
+            background: rgba(224, 123, 123, 0.08);
+            border-color: rgba(224, 123, 123, 0.4);
+            color: var(--ekp-error);
         }
 
         .nai-ext-queue-item.failed .nai-ext-queue-status {
-            color: #dc2626;
+            color: var(--ekp-error);
         }
 
         .nai-ext-queue-status {
-            font-size: 12px;
-            font-weight: bold;
+            font-size: 11px;
         }
 
         .nai-ext-queue-text {
@@ -547,42 +617,42 @@
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            font-weight: 500;
         }
 
         .nai-ext-queue-remove {
             background: transparent;
             border: none;
-            color: #888;
+            color: var(--ekp-fg-subtle);
             cursor: pointer;
-            font-size: 12px;
-            padding: 2px;
-            font-weight: bold;
+            font-size: 11px;
+            padding: 2px 4px;
+            border-radius: var(--ekp-radius-sm);
+            transition: color var(--ekp-duration-fast) var(--ekp-easing);
         }
 
         .nai-ext-queue-remove:hover {
-            color: #dc2626;
+            color: var(--ekp-error);
         }
 
         .nai-ext-queue-item.current .nai-ext-queue-remove:hover {
-            color: #fca5a5;
+            color: var(--ekp-error);
         }
 
         .nai-ext-queue-retry {
             background: transparent;
             border: none;
-            color: #d97706;
+            color: var(--ekp-warning);
             cursor: pointer;
-            font-size: 12px;
-            padding: 2px;
-            font-weight: bold;
+            font-size: 11px;
+            padding: 2px 4px;
+            border-radius: var(--ekp-radius-sm);
         }
 
         .nai-ext-queue-retry:hover {
-            color: #92400e;
+            color: var(--ekp-fg-primary);
         }
 
-        /* Progress Bar */
+        /* ============ PROGRESS BAR ============ */
         .nai-ext-progress {
             margin-bottom: 12px;
         }
@@ -590,75 +660,76 @@
         .nai-ext-progress-text {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 6px;
-            font-size: 11px;
-            font-weight: 600;
-            color: #666;
+            margin-bottom: 5px;
+            font-size: 10px;
+            font-weight: 500;
+            color: var(--ekp-fg-muted);
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
 
         .nai-ext-progress-bar {
-            height: 8px;
-            background: #e0e0e0;
-            border-radius: 0;
+            height: 3px;
+            background: var(--ekp-border);
+            border-radius: var(--ekp-radius-pill);
             overflow: hidden;
         }
 
         .nai-ext-progress-fill {
             height: 100%;
-            background: #1a1a1a;
-            border-radius: 0;
-            transition: width 0.3s ease;
+            background: var(--ekp-accent);
+            border-radius: var(--ekp-radius-pill);
+            transition: width 0.3s var(--ekp-easing);
         }
 
-        /* Status */
+        /* ============ STATUS ============ */
         .nai-ext-status {
             display: flex;
             align-items: center;
             gap: 6px;
-            padding: 7px 10px;
-            background: #f8f8f8;
-            border-radius: 0;
-            font-size: 11px;
-            font-weight: 600;
+            padding: 6px 10px;
+            background: var(--ekp-bg-elevated);
+            border-radius: var(--ekp-radius-sm);
+            font-size: 10px;
+            font-weight: 500;
             margin-bottom: 8px;
-            border: 1px solid #e0e0e0;
+            border: 1px solid var(--ekp-border);
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            color: var(--ekp-fg-muted);
         }
 
         .nai-ext-status-dot {
-            width: 8px;
-            height: 8px;
+            width: 6px;
+            height: 6px;
             border-radius: 50%;
-            background: #999;
+            background: var(--ekp-fg-subtle);
+            flex-shrink: 0;
         }
 
         .nai-ext-status-dot.running {
-            background: #16a34a;
+            background: var(--ekp-success);
             animation: pulse 1.5s infinite;
         }
 
         .nai-ext-status-dot.paused {
-            background: #ea580c;
+            background: var(--ekp-warning);
         }
 
         @keyframes pulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.6; transform: scale(0.9); }
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
 
-        /* Empty State */
+        /* ============ EMPTY STATE ============ */
         .nai-ext-empty {
             text-align: center;
             padding: 12px;
-            color: #999;
-            font-size: 12px;
-            font-style: italic;
+            color: var(--ekp-fg-subtle);
+            font-size: 11px;
         }
 
-        /* Tooltip */
+        /* ============ TOOLTIP ============ */
         .nai-ext-tooltip {
             position: relative;
         }
@@ -666,32 +737,33 @@
         .nai-ext-tooltip::after {
             content: attr(data-tooltip);
             position: absolute;
-            bottom: 100%;
+            bottom: calc(100% + 4px);
             left: 50%;
             transform: translateX(-50%);
-            padding: 6px 10px;
-            background: #1a1a1a;
-            color: #fff;
+            padding: 5px 8px;
+            background: var(--ekp-bg-elevated);
+            color: var(--ekp-fg-primary);
+            border: 1px solid var(--ekp-border-strong);
             font-size: 10px;
-            font-weight: 500;
-            border-radius: 0;
+            border-radius: var(--ekp-radius-sm);
             white-space: nowrap;
             opacity: 0;
             pointer-events: none;
-            transition: opacity 0.15s;
+            transition: opacity var(--ekp-duration-base) var(--ekp-easing);
+            font-family: var(--ekp-font-mono);
         }
 
         .nai-ext-tooltip:hover::after {
             opacity: 1;
         }
 
-        /* Settings Toggle */
+        /* ============ SETTINGS ============ */
         .nai-ext-settings-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 7px 0;
-            border-bottom: 1px solid #e0e0e0;
+            padding: 6px 0;
+            border-bottom: 1px solid var(--ekp-border);
         }
 
         .nai-ext-settings-row:last-child {
@@ -700,53 +772,55 @@
 
         .nai-ext-settings-label {
             font-size: 12px;
-            font-weight: 500;
+            font-weight: 400;
+            color: var(--ekp-fg-primary);
         }
 
         .nai-ext-number-input {
             width: 80px;
-            padding: 6px 10px;
-            background: #ffffff;
-            border: 1.5px solid #d0d0d0;
-            border-radius: 0;
-            color: #1a1a1a;
+            padding: 5px 8px;
+            background: var(--ekp-bg-input);
+            border: 1px solid var(--ekp-border);
+            border-radius: var(--ekp-radius-sm);
+            color: var(--ekp-fg-primary);
             font-size: 12px;
-            font-weight: 600;
+            font-family: var(--ekp-font-mono);
             text-align: center;
         }
 
         .nai-ext-number-input:focus {
             outline: none;
-            border-color: #1a1a1a;
+            border-color: var(--ekp-accent);
+            box-shadow: var(--ekp-focus-ring);
         }
 
-        /* Scrollbar */
+        /* ============ SCROLLBAR ============ */
         .nai-ext-body::-webkit-scrollbar,
         .nai-ext-template-list::-webkit-scrollbar,
         .nai-ext-queue-list::-webkit-scrollbar {
-            width: 6px;
+            width: 4px;
         }
 
         .nai-ext-body::-webkit-scrollbar-track,
         .nai-ext-template-list::-webkit-scrollbar-track,
         .nai-ext-queue-list::-webkit-scrollbar-track {
-            background: #f0f0f0;
+            background: transparent;
         }
 
         .nai-ext-body::-webkit-scrollbar-thumb,
         .nai-ext-template-list::-webkit-scrollbar-thumb,
         .nai-ext-queue-list::-webkit-scrollbar-thumb {
-            background: #ccc;
-            border-radius: 0;
+            background: var(--ekp-border-strong);
+            border-radius: var(--ekp-radius-pill);
         }
 
         .nai-ext-body::-webkit-scrollbar-thumb:hover,
         .nai-ext-template-list::-webkit-scrollbar-thumb:hover,
         .nai-ext-queue-list::-webkit-scrollbar-thumb:hover {
-            background: #aaa;
+            background: var(--ekp-fg-subtle);
         }
 
-        /* Collapsible Section */
+        /* ============ COLLAPSIBLE ============ */
         .nai-ext-section-header.collapsible {
             cursor: pointer;
         }
@@ -754,9 +828,9 @@
         .nai-ext-section-header.collapsible::after {
             content: '−';
             margin-left: auto;
-            font-size: 14px;
-            font-weight: bold;
-            transition: transform 0.15s;
+            font-size: 12px;
+            color: var(--ekp-fg-subtle);
+            transition: color var(--ekp-duration-fast) var(--ekp-easing);
         }
 
         .nai-ext-section.collapsed .nai-ext-section-header.collapsible::after {
@@ -767,66 +841,71 @@
             display: none;
         }
 
-        /* Preview area */
+        /* ============ PREVIEW ============ */
         #nai-ext-preview,
         #nai-ext-preview-negative {
             padding: 8px;
-            background: #f8f8f8;
-            border: 1px solid #e0e0e0;
+            background: var(--ekp-bg-input);
+            border: 1px solid var(--ekp-border);
+            border-radius: var(--ekp-radius-sm);
             font-size: 11px;
-            color: #666;
-            font-family: 'Consolas', 'Monaco', monospace;
+            color: var(--ekp-fg-muted);
+            font-family: var(--ekp-font-mono);
             word-break: break-all;
             max-height: 70px;
             overflow-y: auto;
+            line-height: 1.5;
         }
 
         #nai-ext-preview-negative {
             border-top: none;
-            margin-top: 8px;
-            color: #999;
-            background: #f0f0f0;
+            margin-top: 4px;
+            color: var(--ekp-fg-subtle);
+            background: var(--ekp-bg-base);
         }
 
-        /* Tabs */
+        /* ============ TABS ============ */
         .nai-ext-tabs {
             display: flex;
             flex-wrap: wrap;
-            gap: 3px;
+            gap: 2px;
             margin-bottom: 7px;
         }
 
         .nai-ext-tab {
-            padding: 4px 9px;
-            background: #f0f0f0;
-            border: 1px solid #d0d0d0;
+            padding: 4px 8px;
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: var(--ekp-radius-sm);
             font-size: 10px;
-            font-weight: 600;
-            text-transform: lowercase;
+            font-weight: 400;
+            font-family: var(--ekp-font-mono);
+            color: var(--ekp-fg-muted);
             cursor: pointer;
-            transition: all 0.15s;
+            transition: color var(--ekp-duration-fast) var(--ekp-easing),
+                        background var(--ekp-duration-fast) var(--ekp-easing);
         }
 
         .nai-ext-tab:hover {
-            background: #e0f0ff;
+            color: var(--ekp-fg-primary);
+            background: var(--ekp-bg-hover);
         }
 
         .nai-ext-tab.active {
-            background: #1a1a1a;
-            color: #fff;
-            border-color: #1a1a1a;
+            color: var(--ekp-fg-primary);
+            background: var(--ekp-bg-elevated);
+            border-color: var(--ekp-border);
         }
 
         .nai-ext-tab-add {
             padding: 4px 8px;
-            font-weight: bold;
         }
 
         .nai-ext-tab-action {
             display: inline-block;
             margin-left: 3px;
             font-size: 9px;
-            opacity: 0.55;
+            opacity: 0.5;
             cursor: pointer;
             padding: 0 2px;
             border-radius: 2px;
@@ -835,70 +914,73 @@
 
         .nai-ext-tab-action:hover {
             opacity: 1;
-            background: rgba(255,255,255,0.25);
         }
 
-        /* Placeholder values container */
+        /* ============ PLACEHOLDER VALUES ============ */
         .nai-ext-placeholder-values {
             display: flex;
             flex-wrap: wrap;
-            gap: 5px;
+            gap: 4px;
             margin-bottom: 7px;
             max-height: 90px;
             overflow-y: auto;
         }
 
-        /* Category badge on templates */
+        /* ============ CATEGORY BADGE ============ */
         .nai-ext-template-category {
             font-size: 9px;
-            padding: 2px 6px;
-            background: #e0e0e0;
-            margin-left: 8px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            padding: 1px 5px;
+            background: var(--ekp-bg-elevated);
+            border: 1px solid var(--ekp-border);
+            border-radius: var(--ekp-radius-pill);
+            color: var(--ekp-fg-subtle);
+            margin-left: 6px;
+            text-transform: lowercase;
         }
 
-        /* Checkbox row */
+        /* ============ CHECKBOX ============ */
         .nai-ext-checkbox-row {
             display: flex;
             align-items: center;
             gap: 6px;
             font-size: 11px;
-            color: #666;
+            color: var(--ekp-fg-muted);
             cursor: pointer;
             margin-bottom: 4px;
         }
 
         .nai-ext-checkbox-row input[type="checkbox"] {
-            width: 14px;
-            height: 14px;
-            accent-color: #1a1a1a;
+            width: 13px;
+            height: 13px;
+            accent-color: var(--ekp-accent);
         }
 
-        /* Quality Preset Selector */
+        /* ============ QUALITY PRESET ============ */
         .nai-ext-preset-select {
             width: 100%;
             padding: 6px 10px;
-            background: #ffffff;
-            border: 1.5px solid #d0d0d0;
-            border-radius: 0;
-            color: #1a1a1a;
+            background: var(--ekp-bg-input);
+            border: 1px solid var(--ekp-border);
+            border-radius: var(--ekp-radius-sm);
+            color: var(--ekp-fg-primary);
             font-size: 11px;
-            font-weight: 500;
+            font-family: var(--ekp-font-mono);
             margin-bottom: 8px;
             cursor: pointer;
         }
 
         .nai-ext-preset-select:focus {
             outline: none;
-            border-color: #1a1a1a;
+            border-color: var(--ekp-accent);
+            box-shadow: var(--ekp-focus-ring);
         }
 
-        /* Weight Editor */
+        /* ============ WEIGHT EDITOR ============ */
         .nai-ext-weight-editor {
-            background: #f8f8f8;
+            background: var(--ekp-bg-elevated);
             padding: 8px;
-            border: 1px solid #e0e0e0;
+            border: 1px solid var(--ekp-border);
+            border-radius: var(--ekp-radius-sm);
             margin-bottom: 8px;
         }
 
@@ -916,27 +998,32 @@
         .nai-ext-weight-tag {
             flex: 1;
             font-size: 11px;
-            font-family: monospace;
+            font-family: var(--ekp-font-mono);
+            color: var(--ekp-fg-primary);
         }
 
         .nai-ext-weight-slider {
             width: 80px;
-            accent-color: #1a1a1a;
+            accent-color: var(--ekp-accent);
         }
 
         .nai-ext-weight-value {
             width: 50px;
             text-align: center;
             font-size: 11px;
-            font-weight: 600;
-            border: 1px solid #d0d0d0;
-            padding: 4px;
+            font-family: var(--ekp-font-mono);
+            background: var(--ekp-bg-input);
+            border: 1px solid var(--ekp-border);
+            border-radius: var(--ekp-radius-sm);
+            padding: 3px;
+            color: var(--ekp-fg-primary);
         }
 
-        /* Randomizer Preview */
+        /* ============ RANDOMIZER PREVIEW ============ */
         .nai-ext-randomizer-preview {
-            background: #f0f8ff;
-            border: 1px solid #b0d4ff;
+            background: rgba(95, 191, 168, 0.06);
+            border: 1px solid rgba(95, 191, 168, 0.2);
+            border-radius: var(--ekp-radius-sm);
             padding: 7px;
             margin-bottom: 7px;
             font-size: 11px;
@@ -944,52 +1031,77 @@
 
         .nai-ext-randomizer-variation {
             padding: 4px 8px;
-            margin: 4px 0;
-            background: #fff;
-            border: 1px solid #b0d4ff;
+            margin: 3px 0;
+            background: var(--ekp-bg-elevated);
+            border: 1px solid var(--ekp-border);
+            border-radius: var(--ekp-radius-sm);
             cursor: pointer;
+            color: var(--ekp-fg-muted);
+            font-family: var(--ekp-font-mono);
+            font-size: 10px;
+            transition: background var(--ekp-duration-fast) var(--ekp-easing);
         }
 
         .nai-ext-randomizer-variation:hover {
-            background: #e0f0ff;
+            background: var(--ekp-bg-hover);
+            color: var(--ekp-fg-primary);
         }
 
-        /* Multi-character Section */
+        /* ============ MULTI-CHARACTER ============ */
         .nai-ext-char-slot {
             display: flex;
             align-items: center;
             gap: 6px;
             padding: 6px;
-            background: #f8f8f8;
-            border: 1px solid #e0e0e0;
+            background: var(--ekp-bg-elevated);
+            border: 1px solid var(--ekp-border);
+            border-radius: var(--ekp-radius-sm);
             margin-bottom: 4px;
             font-size: 11px;
             cursor: pointer;
+            color: var(--ekp-fg-muted);
+            transition: background var(--ekp-duration-fast) var(--ekp-easing);
+        }
+
+        .nai-ext-char-slot:hover {
+            background: var(--ekp-bg-hover);
+            color: var(--ekp-fg-primary);
         }
 
         .nai-ext-char-label {
             font-size: 10px;
-            font-weight: 700;
+            font-weight: 500;
             text-transform: uppercase;
+            letter-spacing: 0.5px;
             width: 60px;
+            color: var(--ekp-fg-subtle);
         }
 
-        /* Negative Template Items */
+        /* ============ NEGATIVE TEMPLATE ITEMS ============ */
         .nai-ext-neg-template-item {
             display: flex;
             align-items: center;
             gap: 6px;
-            padding: 6px 8px;
-            background: #f8f8f8;
-            border: 1px solid #e0e0e0;
-            margin-bottom: 4px;
+            padding: 5px 8px;
+            background: var(--ekp-bg-surface);
+            border: 1px solid var(--ekp-border);
+            border-radius: var(--ekp-radius-sm);
+            margin-bottom: 3px;
             font-size: 11px;
             cursor: pointer;
+            color: var(--ekp-fg-muted);
+            transition: background var(--ekp-duration-fast) var(--ekp-easing);
+        }
+
+        .nai-ext-neg-template-item:hover {
+            background: var(--ekp-bg-hover);
+            border-color: var(--ekp-border-strong);
         }
 
         .nai-ext-neg-template-item.active {
-            background: #1a1a1a;
-            color: #ffffff;
+            background: var(--ekp-bg-hover);
+            border-color: var(--ekp-accent);
+            color: var(--ekp-fg-primary);
         }
 
         .nai-ext-neg-template-text {
@@ -999,47 +1111,44 @@
             white-space: nowrap;
         }
 
-        /* Tag Group Headers */
+        /* ============ TAG GROUP HEADERS ============ */
         .nai-ext-tag-group-header {
-            font-size: 10px;
-            font-weight: 700;
+            font-size: 9px;
+            font-weight: 500;
             text-transform: uppercase;
-            color: #888;
+            letter-spacing: 1px;
+            color: var(--ekp-fg-subtle);
             margin: 6px 0 4px 0;
             padding-bottom: 3px;
-            border-bottom: 1px solid #e0e0e0;
+            border-bottom: 1px solid var(--ekp-border);
         }
 
-        /* Extra compact for 720p screens */
+        /* ============ RESPONSIVE ============ */
         @media (max-height: 800px) {
             #nai-ext-panel {
                 top: 60px;
                 max-height: calc(100vh - 80px);
             }
             .nai-ext-body {
-                padding: 7px 9px;
+                padding: 6px 9px;
                 max-height: calc(100vh - 105px);
             }
             .nai-ext-section {
                 margin-bottom: 9px;
-            }
-            .nai-ext-section-header {
-                margin-bottom: 6px;
-                padding-bottom: 5px;
             }
             .nai-ext-template-list {
                 max-height: 140px;
             }
         }
 
-        /* ===================== FOOTER ===================== */
+        /* ============ FOOTER ============ */
         .nai-ext-footer {
             position: absolute;
             bottom: 0;
             left: 0;
             right: 0;
-            background: #ffffff;
-            border-top: 2px solid #1a1a1a;
+            background: var(--ekp-bg-base);
+            border-top: 1px solid var(--ekp-border);
             z-index: 5;
         }
 
@@ -1050,7 +1159,7 @@
         .nai-ext-footer-strip {
             display: flex;
             flex-direction: column;
-            border-top: 1px solid #e0e0e0;
+            border-top: 1px solid var(--ekp-border);
         }
 
         .nai-ext-footer-strip:first-child {
@@ -1060,8 +1169,8 @@
         .nai-ext-footer-panel {
             display: none;
             padding: 7px 10px;
-            background: #ffffff;
-            border-bottom: 1px solid #e0e0e0;
+            background: var(--ekp-bg-base);
+            border-bottom: 1px solid var(--ekp-border);
         }
 
         .nai-ext-footer-strip.open .nai-ext-footer-panel {
@@ -1074,19 +1183,24 @@
             gap: 5px;
             padding: 5px 10px;
             min-height: 30px;
-            background: #f8f8f8;
+            background: var(--ekp-bg-base);
             user-select: none;
         }
 
         .nai-ext-footer-toggle {
             margin-left: auto;
             font-size: 9px;
-            color: #888;
+            color: var(--ekp-fg-subtle);
             cursor: pointer;
             padding: 2px 5px;
             background: transparent;
             border: none;
-            font-weight: bold;
+            font-family: var(--ekp-font-mono);
+            transition: color var(--ekp-duration-fast) var(--ekp-easing);
+        }
+
+        .nai-ext-footer-toggle:hover {
+            color: var(--ekp-fg-muted);
         }
 
         .nai-ext-footer-strip.open .nai-ext-footer-toggle::after { content: '▼'; }
@@ -1098,44 +1212,55 @@
             text-overflow: ellipsis;
             white-space: nowrap;
             font-size: 10px;
-            color: #888;
+            color: var(--ekp-fg-subtle);
             font-style: italic;
+            font-family: var(--ekp-font-mono);
         }
 
         .nai-ext-footer-apply-btn {
-            padding: 3px 7px;
-            background: #1a1a1a;
+            padding: 3px 8px;
+            background: var(--ekp-accent);
             border: none;
-            color: #ffffff;
-            font-size: 9px;
-            font-weight: 700;
-            text-transform: uppercase;
+            border-radius: var(--ekp-radius-sm);
+            color: var(--ekp-accent-fg);
+            font-size: 10px;
+            font-weight: 500;
+            font-family: var(--ekp-font-mono);
             cursor: pointer;
             white-space: nowrap;
-        }
-
-        .nai-ext-footer-apply-btn.secondary {
-            background: #ffffff;
-            color: #1a1a1a;
-            border: 1.5px solid #1a1a1a;
-        }
-
-        .nai-ext-footer-apply-btn:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
+            transition: background var(--ekp-duration-fast) var(--ekp-easing);
         }
 
         .nai-ext-footer-apply-btn:hover:not(:disabled) {
-            opacity: 0.85;
+            background: var(--ekp-accent-hover);
+        }
+
+        .nai-ext-footer-apply-btn.secondary {
+            background: var(--ekp-bg-elevated);
+            color: var(--ekp-fg-primary);
+            border: 1px solid var(--ekp-border);
+        }
+
+        .nai-ext-footer-apply-btn.secondary:hover:not(:disabled) {
+            background: var(--ekp-bg-hover);
+        }
+
+        .nai-ext-footer-apply-btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
         }
 
         .nai-ext-footer-queue-btn {
             background: transparent;
-            border: 1px solid #d0d0d0;
-            color: #1a1a1a;
+            border: 1px solid var(--ekp-border);
+            border-radius: var(--ekp-radius-sm);
+            color: var(--ekp-fg-muted);
             cursor: pointer;
             padding: 2px 5px;
             font-size: 10px;
+            font-family: var(--ekp-font-mono);
+            transition: background var(--ekp-duration-fast) var(--ekp-easing),
+                        color var(--ekp-duration-fast) var(--ekp-easing);
         }
 
         .nai-ext-footer-queue-btn:disabled {
@@ -1144,86 +1269,100 @@
         }
 
         .nai-ext-footer-queue-btn:hover:not(:disabled) {
-            background: #f0f0f0;
+            background: var(--ekp-bg-hover);
+            color: var(--ekp-fg-primary);
         }
 
         .nai-ext-footer-queue-counter {
             font-size: 10px;
-            font-weight: 700;
+            font-weight: 500;
             min-width: 26px;
-            color: #1a1a1a;
+            color: var(--ekp-fg-primary);
+            font-family: var(--ekp-font-mono);
         }
 
         .nai-ext-footer-queue-meta {
           font-size: 9px;
-          color: #666;
+          color: var(--ekp-fg-subtle);
           min-width: 52px;
           white-space: nowrap;
           text-align: left;
+          font-family: var(--ekp-font-mono);
         }
 
         .nai-ext-footer-label {
             font-size: 10px;
-            font-weight: 600;
-            color: #555;
+            font-weight: 500;
+            color: var(--ekp-fg-muted);
+            font-family: var(--ekp-font-mono);
         }
 
         .nai-ext-footer-number-input {
             width: 54px;
             padding: 2px 4px;
-            background: #ffffff;
-            border: 1.5px solid #d0d0d0;
-            color: #1a1a1a;
+            background: var(--ekp-bg-input);
+            border: 1px solid var(--ekp-border);
+            border-radius: var(--ekp-radius-sm);
+            color: var(--ekp-fg-primary);
             font-size: 10px;
-            font-weight: 600;
+            font-family: var(--ekp-font-mono);
             text-align: center;
         }
 
         .nai-ext-footer-number-input:focus {
             outline: none;
-            border-color: #1a1a1a;
+            border-color: var(--ekp-accent);
         }
 
         .nai-ext-footer-icon-btn {
-            background: #ffffff;
-            border: 1.5px solid #1a1a1a;
-            color: #1a1a1a;
+            background: var(--ekp-bg-elevated);
+            border: 1px solid var(--ekp-border);
+            border-radius: var(--ekp-radius-sm);
+            color: var(--ekp-fg-muted);
             cursor: pointer;
-            padding: 2px 5px;
+            padding: 2px 6px;
             font-size: 10px;
+            font-family: var(--ekp-font-mono);
+            transition: background var(--ekp-duration-fast) var(--ekp-easing);
         }
 
         .nai-ext-footer-icon-btn:hover {
-            background: #f0f0f0;
+            background: var(--ekp-bg-hover);
+            color: var(--ekp-fg-primary);
         }
 
-        /* Token Counter */
+        /* ============ TOKEN COUNTER ============ */
         #nai-ext-token-count {
             font-size: 10px;
-            font-weight: 700;
-            font-family: 'Consolas', 'Monaco', monospace;
+            font-weight: 500;
+            font-family: var(--ekp-font-mono);
             padding: 1px 5px;
-            border: 1px solid #e0e0e0;
+            border: 1px solid var(--ekp-border);
+            border-radius: var(--ekp-radius-sm);
             white-space: nowrap;
+            color: var(--ekp-fg-muted);
         }
-        #nai-ext-token-count.ok   { color: #16a34a; border-color: #bbf7d0; }
-        #nai-ext-token-count.warn { color: #d97706; border-color: #fde68a; }
-        #nai-ext-token-count.over { color: #dc2626; border-color: #fca5a5; background: #fee2e2; }
+        #nai-ext-token-count.ok   { color: var(--ekp-success); border-color: rgba(110, 199, 139, 0.3); }
+        #nai-ext-token-count.warn { color: var(--ekp-warning); border-color: rgba(224, 184, 92, 0.3); }
+        #nai-ext-token-count.over { color: var(--ekp-error); border-color: rgba(224, 123, 123, 0.3); background: rgba(224, 123, 123, 0.08); }
 
-        /* Model selector buttons */
+        /* ============ MODEL SELECTOR ============ */
         .nai-ext-model-btn {
             font-size: 9px;
             padding: 2px 5px;
-            background: #f0f0f0;
-            border: 1px solid #d0d0d0;
+            background: var(--ekp-bg-elevated);
+            border: 1px solid var(--ekp-border);
+            border-radius: var(--ekp-radius-sm);
             cursor: pointer;
-            font-weight: 500;
+            font-family: var(--ekp-font-mono);
+            color: var(--ekp-fg-muted);
             line-height: 1.4;
+            transition: background var(--ekp-duration-fast) var(--ekp-easing);
         }
-        .nai-ext-model-btn:hover { background: #e0e0e0; }
-        .nai-ext-model-btn.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+        .nai-ext-model-btn:hover { background: var(--ekp-bg-hover); color: var(--ekp-fg-primary); }
+        .nai-ext-model-btn.active { background: var(--ekp-bg-active); color: var(--ekp-accent); border-color: var(--ekp-accent); }
 
-        /* Anlas calculator */
+        /* ============ ANLAS CALCULATOR ============ */
         .nai-ext-anlas-row {
             display: flex;
             align-items: center;
@@ -1231,7 +1370,7 @@
             margin-bottom: 5px;
             font-size: 11px;
         }
-        .nai-ext-anlas-row label { flex: 1; color: #555; font-size: 10px; }
+        .nai-ext-anlas-row label { flex: 1; color: var(--ekp-fg-muted); font-size: 10px; }
         .nai-ext-anlas-spinner {
             display: flex;
             align-items: center;
@@ -1242,47 +1381,55 @@
             height: 18px;
             line-height: 1;
             padding: 0;
-            border: 1px solid #d0d0d0;
-            background: #f0f0f0;
+            border: 1px solid var(--ekp-border);
+            border-radius: var(--ekp-radius-sm);
+            background: var(--ekp-bg-elevated);
             cursor: pointer;
             font-size: 12px;
-            font-weight: 700;
+            color: var(--ekp-fg-muted);
+            font-family: var(--ekp-font-mono);
         }
-        .nai-ext-anlas-spinner button:hover { background: #e0e0e0; }
+        .nai-ext-anlas-spinner button:hover { background: var(--ekp-bg-hover); color: var(--ekp-fg-primary); }
         .nai-ext-anlas-spinner span {
             width: 22px;
             text-align: center;
-            font-weight: 700;
+            font-weight: 500;
             font-size: 11px;
+            font-family: var(--ekp-font-mono);
+            color: var(--ekp-fg-primary);
         }
         #nai-ext-anlas-cost {
             font-size: 10px;
-            font-weight: 700;
-            font-family: 'Consolas', 'Monaco', monospace;
+            font-weight: 500;
+            font-family: var(--ekp-font-mono);
             padding: 1px 5px;
-            border: 1px solid #e0e0e0;
+            border: 1px solid var(--ekp-border);
+            border-radius: var(--ekp-radius-sm);
             white-space: nowrap;
         }
-        #nai-ext-anlas-cost.free { color: #16a34a; border-color: #bbf7d0; }
-        #nai-ext-anlas-cost.cheap { color: #d97706; border-color: #fde68a; }
-        #nai-ext-anlas-cost.costly { color: #dc2626; border-color: #fca5a5; background: #fee2e2; }
+        #nai-ext-anlas-cost.free { color: var(--ekp-success); border-color: rgba(110, 199, 139, 0.3); }
+        #nai-ext-anlas-cost.cheap { color: var(--ekp-warning); border-color: rgba(224, 184, 92, 0.3); }
+        #nai-ext-anlas-cost.costly { color: var(--ekp-error); border-color: rgba(224, 123, 123, 0.3); background: rgba(224, 123, 123, 0.08); }
         .nai-ext-opus-toggle {
             font-size: 9px;
             padding: 2px 6px;
-            border: 1.5px solid #d0d0d0;
-            background: #f0f0f0;
+            border: 1px solid var(--ekp-border);
+            border-radius: var(--ekp-radius-sm);
+            background: var(--ekp-bg-elevated);
             cursor: pointer;
-            font-weight: 600;
+            font-family: var(--ekp-font-mono);
+            color: var(--ekp-fg-muted);
+            font-weight: 500;
+            transition: background var(--ekp-duration-fast) var(--ekp-easing);
         }
-        .nai-ext-opus-toggle.active { background: #7c3aed; color: #fff; border-color: #7c3aed; }
+        .nai-ext-opus-toggle.active { background: rgba(124, 58, 237, 0.2); color: #a78bfa; border-color: rgba(124, 58, 237, 0.4); }
 
-        /* Body padding-bottom to clear footer — overridden dynamically by JS */
+        /* Body padding-bottom to clear footer */
         .nai-ext-body {
             padding-bottom: 100px;
         }
 
-
-        /* ===================== HELP MODAL ===================== */
+        /* ============ HELP MODAL ============ */
         #nai-ext-help-modal {
             display: none;
             position: absolute;
@@ -1290,7 +1437,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: #ffffff;
+            background: var(--ekp-bg-surface);
             z-index: 20;
             overflow-y: auto;
             padding: 12px;
@@ -1302,17 +1449,19 @@
 
         .nai-ext-help-close {
             float: right;
-            background: #1a1a1a;
-            color: #ffffff;
-            border: none;
+            background: var(--ekp-bg-elevated);
+            color: var(--ekp-fg-primary);
+            border: 1px solid var(--ekp-border);
+            border-radius: var(--ekp-radius-sm);
             padding: 3px 8px;
             cursor: pointer;
             font-size: 11px;
-            font-weight: bold;
+            font-family: var(--ekp-font-mono);
+            transition: background var(--ekp-duration-fast) var(--ekp-easing);
         }
 
         .nai-ext-help-close:hover {
-            background: #333333;
+            background: var(--ekp-bg-hover);
         }
 
         .nai-ext-help-section {
@@ -1320,14 +1469,14 @@
         }
 
         .nai-ext-help-title {
-            font-size: 11px;
-            font-weight: 700;
+            font-size: 10px;
+            font-weight: 500;
             text-transform: uppercase;
             letter-spacing: 1px;
-            border-bottom: 2px solid #1a1a1a;
+            border-bottom: 1px solid var(--ekp-border);
             padding-bottom: 4px;
             margin-bottom: 8px;
-            color: #1a1a1a;
+            color: var(--ekp-fg-muted);
         }
 
         .nai-ext-help-row {
@@ -1336,36 +1485,40 @@
             font-size: 11px;
             margin-bottom: 3px;
             align-items: baseline;
+            color: var(--ekp-fg-muted);
         }
 
         .nai-ext-help-syntax {
-            font-family: 'Consolas', 'Monaco', monospace;
+            font-family: var(--ekp-font-mono);
             font-size: 10px;
-            background: #f0f0f0;
+            background: var(--ekp-bg-input);
             padding: 1px 5px;
             flex-shrink: 0;
-            border: 1px solid #e0e0e0;
+            border: 1px solid var(--ekp-border);
+            border-radius: var(--ekp-radius-sm);
+            color: var(--ekp-accent);
         }
 
         .nai-ext-help-code {
-            font-family: 'Consolas', 'Monaco', monospace;
+            font-family: var(--ekp-font-mono);
             font-size: 10px;
-            background: #f8f8f8;
-            border: 1px solid #e0e0e0;
+            background: var(--ekp-bg-input);
+            border: 1px solid var(--ekp-border);
+            border-radius: var(--ekp-radius-sm);
             padding: 5px 7px;
             display: block;
             margin: 5px 0;
             word-break: break-all;
+            color: var(--ekp-fg-primary);
         }
 
         .nai-ext-help-note {
             font-size: 10px;
-            color: #888;
+            color: var(--ekp-fg-subtle);
             margin-top: 4px;
-            font-style: italic;
         }
 
-        /* ================ BATCH IMPORT MODAL ================= */
+        /* ============ BATCH IMPORT MODAL ============ */
         #nai-ext-batch-modal {
             display: none;
             position: absolute;
@@ -1373,7 +1526,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: #ffffff;
+            background: var(--ekp-bg-surface);
             z-index: 20;
             padding: 12px;
             overflow-y: auto;
@@ -1390,35 +1543,50 @@
             flex: 1;
             min-height: 180px;
             resize: vertical;
-            font-family: 'Consolas', 'Monaco', monospace;
+            font-family: var(--ekp-font-mono);
             font-size: 11px;
-            border: 1px solid #d0d0d0;
+            border: 1px solid var(--ekp-border);
+            border-radius: var(--ekp-radius-sm);
             padding: 8px;
             box-sizing: border-box;
-            color: #1a1a1a;
+            background: var(--ekp-bg-input);
+            color: var(--ekp-fg-primary);
             line-height: 1.5;
         }
-
         #nai-ext-batch-textarea:focus {
             outline: none;
-            border-color: #1a1a1a;
+            border-color: var(--ekp-accent);
+            box-shadow: var(--ekp-focus-ring);
         }
 
         .nai-ext-batch-hint {
             font-size: 10px;
-            color: #888;
-            font-style: italic;
+            color: var(--ekp-fg-subtle);
+            font-family: var(--ekp-font-mono);
         }
 
         .nai-ext-batch-count {
             font-size: 11px;
-            font-weight: bold;
-            color: #1a1a1a;
+            font-weight: 500;
+            color: var(--ekp-fg-primary);
+            font-family: var(--ekp-font-mono);
         }
 
         .nai-ext-batch-actions {
             display: flex;
             gap: 6px;
+        }
+
+        /* ============ REDUCED MOTION ============ */
+        @media (prefers-reduced-motion: reduce) {
+            #nai-ext-panel,
+            .nai-ext-template-item,
+            .nai-ext-btn,
+            .nai-ext-tab,
+            .nai-ext-progress-fill {
+                transition: none;
+            }
+            @keyframes pulse { 0%, 100% { opacity: 1; } }
         }
     `;
 
@@ -1426,18 +1594,19 @@
   // STATE
   // ============================================
   let state = {
-    // Templates as objects with id, name, content, category, negativeId
+    // Positive templates backed by library.json
     templates: [],
-    // Negative prompt templates
+    // Negative templates backed by library.json
     negativeTemplates: [],
-    // Dynamic placeholders: { artist: ['val1', 'val2'], character: ['1girl'] }
+    // Dynamic placeholders keyed by shortName. Each array carries metadata fields.
     placeholders: {
       artist: [],
       character: [],
       style: [],
     },
-    // Template categories
+    // Template categories with label-keyed metadata.
     categories: ["general", "portraits", "landscapes"],
+    categoryMeta: {},
     // Currently selected items
     selectedTemplates: [], // Array of template indices for multi-select
     selectedPlaceholders: {}, // { artist: [0, 1], character: [0] }
@@ -1448,10 +1617,13 @@
     placeholderSearchQuery: "",
     // Queue state
     queue: [],
+    queueEntries: [],
     failedQueueItems: [], // Track indices of failed generations
     isQueueRunning: false,
     isQueuePaused: false,
     currentQueueIndex: 0,
+    savedQueueSnapshot: null,
+    lastSessionSavedAt: 0,
     // Settings
     settings: {
       delayBetweenGenerations: 2000,
@@ -1513,6 +1685,856 @@
     },
   };
 
+  function nowIso() {
+    return new Date().toISOString();
+  }
+
+  function createEntityId(prefix) {
+    const alphabet = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+    let time = Date.now();
+    let encodedTime = "";
+
+    for (let index = 0; index < 10; index++) {
+      encodedTime = alphabet[time % 32] + encodedTime;
+      time = Math.floor(time / 32);
+    }
+
+    let encodedRandom = "";
+    for (let index = 0; index < 16; index++) {
+      encodedRandom += alphabet[Math.floor(Math.random() * alphabet.length)];
+    }
+
+    return `${prefix}_${encodedTime}${encodedRandom}`;
+  }
+
+  function humanizeToken(token) {
+    return String(token || "")
+      .replace(/[_-]+/g, " ")
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+  }
+
+  function getTimestampValue(value) {
+    const parsed = Date.parse(value || "");
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function getDefaultCategoryLabels() {
+    return DEFAULT_CATEGORY_PRESETS.map((category) => category.label);
+  }
+
+  function getDefaultCategoryColor(label) {
+    const preset = DEFAULT_CATEGORY_PRESETS.find(
+      (category) => category.label === label,
+    );
+    return preset?.color || "#7C8796";
+  }
+
+  function modelKeyToSchemaValue(modelKey) {
+    return MODEL_STORAGE_KEY_MAP[modelKey] || "v4-5-full";
+  }
+
+  function schemaValueToModelKey(modelValue) {
+    return MODEL_UI_KEY_MAP[modelValue] || "v45_full";
+  }
+
+  function ensureCategoryMeta(label, options = {}) {
+    const normalizedLabel = String(label || "general").trim().toLowerCase();
+    const existing = state.categoryMeta[normalizedLabel];
+    if (existing) {
+      if (options.color && !existing.color) existing.color = options.color;
+      return existing;
+    }
+
+    const meta = {
+      id: options.id || createEntityId("cat"),
+      label: normalizedLabel,
+      color: options.color || getDefaultCategoryColor(normalizedLabel),
+      createdAt: options.createdAt || nowIso(),
+    };
+
+    state.categoryMeta[normalizedLabel] = meta;
+    if (!state.categories.includes(normalizedLabel)) {
+      state.categories.push(normalizedLabel);
+    }
+    return meta;
+  }
+
+  function getCategoryLabelById(categoryId) {
+    if (!categoryId) return "general";
+    const match = Object.values(state.categoryMeta).find(
+      (meta) => meta.id === categoryId,
+    );
+    return match?.label || "general";
+  }
+
+  function ensurePlaceholderBucket(shortName, options = {}) {
+    const key = String(shortName || "").trim().toLowerCase();
+    if (!key) return null;
+
+    let bucket = state.placeholders[key];
+    if (!Array.isArray(bucket)) {
+      bucket = [];
+      state.placeholders[key] = bucket;
+    }
+
+    const createdAt = options.createdAt || bucket.createdAt || nowIso();
+    bucket.id = options.id || bucket.id || createEntityId("ph");
+    bucket.shortName = key;
+    bucket.label = options.label || bucket.label || humanizeToken(key);
+    bucket.createdAt = bucket.createdAt || createdAt;
+    bucket.updatedAt = options.updatedAt || bucket.updatedAt || bucket.createdAt;
+    return bucket;
+  }
+
+  function ensureDefaultPlaceholderBuckets() {
+    CONFIG.DEFAULT_PLACEHOLDERS.forEach((type) => ensurePlaceholderBucket(type));
+    if (!state.currentPlaceholderTab || !state.placeholders[state.currentPlaceholderTab]) {
+      state.currentPlaceholderTab =
+        Object.keys(state.placeholders)[0] || CONFIG.DEFAULT_PLACEHOLDERS[0];
+    }
+  }
+
+  function touchPlaceholderBucket(shortName) {
+    const bucket = ensurePlaceholderBucket(shortName);
+    if (bucket) bucket.updatedAt = nowIso();
+    return bucket;
+  }
+
+  function getTemplateLinkedNegativeId(template) {
+    if (!template || typeof template !== "object") return null;
+    return template.linkedNegativeId ?? template.negativeId ?? null;
+  }
+
+  function setTemplateLinkedNegativeId(template, linkedNegativeId) {
+    if (!template || typeof template !== "object") return;
+    template.linkedNegativeId = linkedNegativeId || null;
+    delete template.negativeId;
+    template.updatedAt = nowIso();
+  }
+
+  function findNegativeTemplateById(templateId) {
+    return state.negativeTemplates.find((template) => template.id === templateId) || null;
+  }
+
+  function findNegativeTemplateIndexById(templateId) {
+    return state.negativeTemplates.findIndex((template) => template.id === templateId);
+  }
+
+  function normalizeTemplateRecord(template, type = "positive", legacyNegativeIdMap = null) {
+    const source =
+      typeof template === "object" && template !== null
+        ? template
+        : { content: String(template || "") };
+    const createdAt = source.createdAt || nowIso();
+    const categoryLabel =
+      type === "positive"
+        ? String(
+            source.category || getCategoryLabelById(source.categoryId) || "general",
+          )
+            .trim()
+            .toLowerCase() || "general"
+        : "";
+    const categoryMeta =
+      type === "positive" ? ensureCategoryMeta(categoryLabel || "general") : null;
+    const linkedNegativeId =
+      type === "positive"
+        ? source.linkedNegativeId ||
+          (legacyNegativeIdMap && Number.isInteger(source.negativeId)
+            ? legacyNegativeIdMap.get(source.negativeId) || null
+            : null)
+        : null;
+
+    return {
+      id: source.id || createEntityId("tpl"),
+      type,
+      name: typeof source.name === "string" ? source.name : "",
+      content:
+        typeof source.content === "string"
+          ? source.content
+          : String(source.content || ""),
+      category: type === "positive" ? categoryMeta.label : "",
+      categoryId: type === "positive" ? categoryMeta.id : null,
+      linkedNegativeId,
+      tags: Array.isArray(source.tags) ? [...source.tags] : [],
+      createdAt,
+      updatedAt: source.updatedAt || createdAt,
+    };
+  }
+
+  function serializeTemplateRecord(template, type = "positive") {
+    const record = normalizeTemplateRecord(template, type);
+    return {
+      id: record.id,
+      type,
+      name: record.name,
+      content: record.content,
+      categoryId: type === "positive" ? record.categoryId : null,
+      linkedNegativeId: type === "positive" ? getTemplateLinkedNegativeId(record) : null,
+      tags: Array.isArray(record.tags) ? [...record.tags] : [],
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+    };
+  }
+
+  function buildLibraryDocument() {
+    const exportedAt = nowIso();
+    const templates = [
+      ...state.templates.map((template) => serializeTemplateRecord(template, "positive")),
+      ...state.negativeTemplates.map((template) => serializeTemplateRecord(template, "negative")),
+    ];
+    const placeholders = {};
+
+    Object.keys(state.placeholders)
+      .sort()
+      .forEach((shortName) => {
+        const bucket = ensurePlaceholderBucket(shortName);
+        placeholders[bucket.id] = {
+          id: bucket.id,
+          shortName,
+          label: bucket.label || humanizeToken(shortName),
+          values: [...bucket],
+          createdAt: bucket.createdAt || exportedAt,
+          updatedAt: bucket.updatedAt || bucket.createdAt || exportedAt,
+        };
+      });
+
+    const categories = state.categories.map((label) => {
+      const meta = ensureCategoryMeta(label);
+      return {
+        id: meta.id,
+        label: meta.label,
+        color: meta.color,
+        createdAt: meta.createdAt,
+      };
+    });
+
+    return {
+      schemaVersion: 4,
+      exportedAt,
+      exportedBy: `ekphrasis-studio/${CONFIG.VERSION}`,
+      templates,
+      placeholders,
+      categories,
+    };
+  }
+
+  function hydrateLibraryState(libraryDoc) {
+    state.templates = [];
+    state.negativeTemplates = [];
+    state.placeholders = {};
+    state.categories = [];
+    state.categoryMeta = {};
+
+    const categories =
+      Array.isArray(libraryDoc?.categories) && libraryDoc.categories.length > 0
+        ? libraryDoc.categories
+        : DEFAULT_CATEGORY_PRESETS.map((category) => ({
+            ...category,
+            id: createEntityId("cat"),
+            createdAt: nowIso(),
+          }));
+
+    categories.forEach((category) => {
+      ensureCategoryMeta(category.label, category);
+    });
+    ensureCategoryMeta("general");
+
+    const libraryTemplates = Array.isArray(libraryDoc?.templates)
+      ? libraryDoc.templates
+      : [];
+
+    state.negativeTemplates = libraryTemplates
+      .filter((template) => template?.type === "negative")
+      .map((template) => normalizeTemplateRecord(template, "negative"));
+
+    state.templates = libraryTemplates
+      .filter((template) => template?.type !== "negative")
+      .map((template) => normalizeTemplateRecord(template, "positive"));
+
+    const placeholders =
+      libraryDoc?.placeholders && typeof libraryDoc.placeholders === "object"
+        ? libraryDoc.placeholders
+        : {};
+
+    Object.values(placeholders).forEach((placeholder) => {
+      if (!placeholder || typeof placeholder !== "object") return;
+      const shortName = String(placeholder.shortName || "").trim().toLowerCase();
+      if (!shortName) return;
+      const bucket = ensurePlaceholderBucket(shortName, placeholder);
+      bucket.splice(
+        0,
+        bucket.length,
+        ...(Array.isArray(placeholder.values)
+          ? placeholder.values.map((value) => String(value))
+          : []),
+      );
+      bucket.createdAt = placeholder.createdAt || bucket.createdAt || nowIso();
+      bucket.updatedAt = placeholder.updatedAt || bucket.updatedAt || bucket.createdAt;
+    });
+
+    ensureDefaultPlaceholderBuckets();
+  }
+
+  function buildLibraryDocumentFromParts(parts = {}) {
+    const exportedAt = nowIso();
+    const categories = [];
+    const categoryByLabel = new Map();
+
+    const ensureLocalCategory = (label, options = {}) => {
+      const normalizedLabel = String(label || "general").trim().toLowerCase() || "general";
+      if (categoryByLabel.has(normalizedLabel)) return categoryByLabel.get(normalizedLabel);
+      const category = {
+        id: options.id || createEntityId("cat"),
+        label: normalizedLabel,
+        color: options.color || getDefaultCategoryColor(normalizedLabel),
+        createdAt: options.createdAt || exportedAt,
+      };
+      categories.push(category);
+      categoryByLabel.set(normalizedLabel, category);
+      return category;
+    };
+
+    (Array.isArray(parts.categories) && parts.categories.length > 0
+      ? parts.categories
+      : getDefaultCategoryLabels()
+    ).forEach((category) => {
+      if (typeof category === "string") {
+        ensureLocalCategory(category);
+        return;
+      }
+      ensureLocalCategory(category?.label, category || {});
+    });
+
+    const negativeTemplates = (Array.isArray(parts.negativeTemplates)
+      ? parts.negativeTemplates
+      : []
+    ).map((template) => {
+      const source =
+        typeof template === "object" && template !== null
+          ? template
+          : { content: String(template || "") };
+      const createdAt = source.createdAt || exportedAt;
+      return {
+        id: source.id || createEntityId("tpl"),
+        type: "negative",
+        name: typeof source.name === "string" ? source.name : "",
+        content:
+          typeof source.content === "string"
+            ? source.content
+            : String(source.content || ""),
+        categoryId: null,
+        linkedNegativeId: null,
+        tags: Array.isArray(source.tags) ? [...source.tags] : [],
+        createdAt,
+        updatedAt: source.updatedAt || createdAt,
+      };
+    });
+
+    const negativeIdMap = new Map(
+      negativeTemplates.map((template, index) => [index, template.id]),
+    );
+
+    const positiveTemplates = (Array.isArray(parts.templates) ? parts.templates : []).map(
+      (template) => {
+        const source =
+          typeof template === "object" && template !== null
+            ? template
+            : { content: String(template || "") };
+        const category = ensureLocalCategory(
+          source.category || getCategoryLabelById(source.categoryId) || "general",
+        );
+        const createdAt = source.createdAt || exportedAt;
+        return {
+          id: source.id || createEntityId("tpl"),
+          type: "positive",
+          name: typeof source.name === "string" ? source.name : "",
+          content:
+            typeof source.content === "string"
+              ? source.content
+              : String(source.content || ""),
+          categoryId: source.categoryId || category.id,
+          linkedNegativeId:
+            source.linkedNegativeId ||
+            (Number.isInteger(source.negativeId)
+              ? negativeIdMap.get(source.negativeId) || null
+              : null),
+          tags: Array.isArray(source.tags) ? [...source.tags] : [],
+          createdAt,
+          updatedAt: source.updatedAt || createdAt,
+        };
+      },
+    );
+
+    const placeholders = {};
+    const placeholderValues =
+      parts.placeholders && typeof parts.placeholders === "object"
+        ? parts.placeholders
+        : {};
+
+    Object.entries(placeholderValues).forEach(([key, value]) => {
+      if (Array.isArray(value)) {
+        const id = createEntityId("ph");
+        placeholders[id] = {
+          id,
+          shortName: key.trim().toLowerCase(),
+          label: humanizeToken(key),
+          values: value.map((item) => String(item)),
+          createdAt: exportedAt,
+          updatedAt: exportedAt,
+        };
+        return;
+      }
+
+      if (!value || typeof value !== "object") return;
+      const id = value.id || createEntityId("ph");
+      const shortName = String(value.shortName || key).trim().toLowerCase();
+      placeholders[id] = {
+        id,
+        shortName,
+        label: value.label || humanizeToken(shortName),
+        values: Array.isArray(value.values)
+          ? value.values.map((item) => String(item))
+          : [],
+        createdAt: value.createdAt || exportedAt,
+        updatedAt: value.updatedAt || value.createdAt || exportedAt,
+      };
+    });
+
+    CONFIG.DEFAULT_PLACEHOLDERS.forEach((shortName) => {
+      const hasPlaceholder = Object.values(placeholders).some(
+        (placeholder) => placeholder.shortName === shortName,
+      );
+      if (hasPlaceholder) return;
+      const id = createEntityId("ph");
+      placeholders[id] = {
+        id,
+        shortName,
+        label: humanizeToken(shortName),
+        values: [],
+        createdAt: exportedAt,
+        updatedAt: exportedAt,
+      };
+    });
+
+    return {
+      schemaVersion: 4,
+      exportedAt,
+      exportedBy: `ekphrasis-studio/${CONFIG.VERSION}`,
+      templates: [...positiveTemplates, ...negativeTemplates],
+      placeholders,
+      categories,
+    };
+  }
+
+  function mergeLibraryDocuments(currentDoc, incomingDoc) {
+    const exportedAt = nowIso();
+    const categoryRemap = new Map();
+    const categories = [];
+    const categoryByLabel = new Map();
+
+    const registerCategory = (category) => {
+      if (!category) return;
+      const normalizedLabel = String(category.label || "general").trim().toLowerCase() || "general";
+      const existing = categoryByLabel.get(normalizedLabel);
+      if (existing) {
+        if (category.id) categoryRemap.set(category.id, existing.id);
+        return existing;
+      }
+      const registered = {
+        id: category.id || createEntityId("cat"),
+        label: normalizedLabel,
+        color: category.color || getDefaultCategoryColor(normalizedLabel),
+        createdAt: category.createdAt || exportedAt,
+      };
+      categories.push(registered);
+      categoryByLabel.set(normalizedLabel, registered);
+      if (category.id) categoryRemap.set(category.id, registered.id);
+      return registered;
+    };
+
+    [...(currentDoc.categories || []), ...(incomingDoc.categories || [])].forEach(registerCategory);
+    getDefaultCategoryLabels().forEach((label) => registerCategory({ label }));
+
+    const templatesById = new Map();
+    [...(currentDoc.templates || []), ...(incomingDoc.templates || [])].forEach((template) => {
+      if (!template || typeof template !== "object") return;
+      const normalized = { ...template };
+      if (normalized.type !== "negative") {
+        normalized.categoryId =
+          categoryRemap.get(normalized.categoryId) || normalized.categoryId || registerCategory({ label: "general" }).id;
+      } else {
+        normalized.categoryId = null;
+        normalized.linkedNegativeId = null;
+      }
+
+      const existing = templatesById.get(normalized.id);
+      if (!existing) {
+        templatesById.set(normalized.id, normalized);
+        return;
+      }
+
+      const incomingStamp = getTimestampValue(normalized.updatedAt || normalized.createdAt);
+      const existingStamp = getTimestampValue(existing.updatedAt || existing.createdAt);
+      if (incomingStamp >= existingStamp) {
+        templatesById.set(normalized.id, normalized);
+      }
+    });
+
+    const placeholdersByShortName = new Map();
+    const registerPlaceholder = (placeholder) => {
+      if (!placeholder || typeof placeholder !== "object") return;
+      const shortName = String(placeholder.shortName || "").trim().toLowerCase();
+      if (!shortName) return;
+      const existing = placeholdersByShortName.get(shortName);
+      const values = Array.from(
+        new Set(
+          (Array.isArray(existing?.values) ? existing.values : [])
+            .concat(Array.isArray(placeholder.values) ? placeholder.values : [])
+            .map((value) => String(value)),
+        ),
+      );
+      if (!existing) {
+        placeholdersByShortName.set(shortName, {
+          id: placeholder.id || createEntityId("ph"),
+          shortName,
+          label: placeholder.label || humanizeToken(shortName),
+          values,
+          createdAt: placeholder.createdAt || exportedAt,
+          updatedAt: placeholder.updatedAt || placeholder.createdAt || exportedAt,
+        });
+        return;
+      }
+
+      const incomingStamp = getTimestampValue(placeholder.updatedAt || placeholder.createdAt);
+      const existingStamp = getTimestampValue(existing.updatedAt || existing.createdAt);
+      const preferred = incomingStamp >= existingStamp ? placeholder : existing;
+      placeholdersByShortName.set(shortName, {
+        id: existing.id || placeholder.id || createEntityId("ph"),
+        shortName,
+        label: preferred.label || humanizeToken(shortName),
+        values,
+        createdAt: existing.createdAt || placeholder.createdAt || exportedAt,
+        updatedAt: preferred.updatedAt || preferred.createdAt || exportedAt,
+      });
+    };
+
+    Object.values(currentDoc.placeholders || {}).forEach(registerPlaceholder);
+    Object.values(incomingDoc.placeholders || {}).forEach(registerPlaceholder);
+    CONFIG.DEFAULT_PLACEHOLDERS.forEach((shortName) => {
+      registerPlaceholder({ shortName, label: humanizeToken(shortName), values: [] });
+    });
+
+    const placeholders = {};
+    placeholdersByShortName.forEach((placeholder) => {
+      placeholders[placeholder.id] = placeholder;
+    });
+
+    return {
+      schemaVersion: 4,
+      exportedAt,
+      exportedBy: `ekphrasis-studio/${CONFIG.VERSION}`,
+      templates: [...templatesById.values()],
+      placeholders,
+      categories,
+    };
+  }
+
+  function createDefaultSettingsDocument() {
+    return {
+      schemaVersion: 4,
+      ui: {
+        theme: "dark",
+        panelPosition: "right",
+        panelWidth: 360,
+        panelMinimized: false,
+        showKeyboardHints: true,
+        showT5TokenCount: true,
+      },
+      queue: {
+        delayMs: CONFIG.DEFAULT_DELAY,
+        delayJitterMs: 0,
+        stopOnError: false,
+        imagesPerCall: 1,
+        retryOnFailure: false,
+        retryMaxAttempts: 0,
+      },
+      model: {
+        preferred: "v4-5-full",
+        autoApplyQualityTags: false,
+        qualityTagsByModel: {
+          "v4-5-full": QUALITY_TAG_PRESETS.v45_full.tags,
+          "v4-5-curated": QUALITY_TAG_PRESETS.v45_curated.tags,
+          "v4-full": QUALITY_TAG_PRESETS.v4_full.tags,
+          "v4-curated": QUALITY_TAG_PRESETS.v4_curated.tags,
+          v3: QUALITY_TAG_PRESETS.v3.tags,
+        },
+      },
+      anlas: {
+        trackCost: true,
+        warnAboveThreshold: 100,
+        opusFreePlan: false,
+        preciseRefCount: 0,
+        vibeCount: 0,
+      },
+      core: {
+        outputDir: "~/Pictures/ekphrasis",
+        naiCachePath: null,
+        scrapeBrowserCache: false,
+      },
+      studio: {
+        autoStartQueue: false,
+        freeSafeMode: false,
+        randomizerEnabled: CONFIG.RANDOMIZER_DEFAULT_ENABLED,
+      },
+    };
+  }
+
+  function buildSettingsDocumentFromLegacySettings(legacySettings = {}) {
+    const settingsDoc = createDefaultSettingsDocument();
+    settingsDoc.queue.delayMs = Number.isFinite(legacySettings.delayBetweenGenerations)
+      ? legacySettings.delayBetweenGenerations
+      : CONFIG.DEFAULT_DELAY;
+    settingsDoc.model.preferred = modelKeyToSchemaValue(
+      legacySettings.currentModel || "v45_full",
+    );
+    settingsDoc.anlas.opusFreePlan = !!legacySettings.opusPlan;
+    settingsDoc.anlas.preciseRefCount = Number.isFinite(legacySettings.preciseRefCount)
+      ? legacySettings.preciseRefCount
+      : 0;
+    settingsDoc.anlas.vibeCount = Number.isFinite(legacySettings.vibeCount)
+      ? legacySettings.vibeCount
+      : 0;
+    settingsDoc.studio.autoStartQueue = !!legacySettings.autoStartQueue;
+    settingsDoc.studio.freeSafeMode = !!legacySettings.freeSafeMode;
+    settingsDoc.studio.randomizerEnabled =
+      typeof legacySettings.randomizerEnabled === "boolean"
+        ? legacySettings.randomizerEnabled
+        : CONFIG.RANDOMIZER_DEFAULT_ENABLED;
+    return settingsDoc;
+  }
+
+  function buildSettingsDocument() {
+    const settingsDoc = createDefaultSettingsDocument();
+    settingsDoc.queue.delayMs = state.settings.delayBetweenGenerations;
+    settingsDoc.model.preferred = modelKeyToSchemaValue(state.settings.currentModel);
+    settingsDoc.anlas.opusFreePlan = !!state.settings.opusPlan;
+    settingsDoc.anlas.preciseRefCount = Number.isFinite(state.settings.preciseRefCount)
+      ? state.settings.preciseRefCount
+      : 0;
+    settingsDoc.anlas.vibeCount = Number.isFinite(state.settings.vibeCount)
+      ? state.settings.vibeCount
+      : 0;
+    settingsDoc.studio.autoStartQueue = !!state.settings.autoStartQueue;
+    settingsDoc.studio.freeSafeMode = !!state.settings.freeSafeMode;
+    settingsDoc.studio.randomizerEnabled = !!state.settings.randomizerEnabled;
+    return settingsDoc;
+  }
+
+  function applySettingsDocument(settingsDoc) {
+    const source = settingsDoc && typeof settingsDoc === "object"
+      ? settingsDoc
+      : createDefaultSettingsDocument();
+
+    state.settings = {
+      delayBetweenGenerations: Number.isFinite(source.queue?.delayMs)
+        ? source.queue.delayMs
+        : CONFIG.DEFAULT_DELAY,
+      autoStartQueue: !!source.studio?.autoStartQueue,
+      freeSafeMode: !!source.studio?.freeSafeMode,
+      randomizerEnabled:
+        typeof source.studio?.randomizerEnabled === "boolean"
+          ? source.studio.randomizerEnabled
+          : CONFIG.RANDOMIZER_DEFAULT_ENABLED,
+      currentModel: schemaValueToModelKey(source.model?.preferred),
+      opusPlan: !!source.anlas?.opusFreePlan,
+      preciseRefCount: Number.isFinite(source.anlas?.preciseRefCount)
+        ? source.anlas.preciseRefCount
+        : 0,
+      vibeCount: Number.isFinite(source.anlas?.vibeCount)
+        ? source.anlas.vibeCount
+        : 0,
+    };
+  }
+
+  function isV4LibraryDocument(value) {
+    return !!value && value.schemaVersion === 4 && (
+      Array.isArray(value.templates) ||
+      typeof value.placeholders === "object" ||
+      Array.isArray(value.categories)
+    );
+  }
+
+  function isV4SettingsDocument(value) {
+    return !!value && value.schemaVersion === 4 && !!value.queue && !!value.model;
+  }
+
+  function isV4SessionDocument(value) {
+    return !!value && value.schemaVersion === 4 && !!value.queue;
+  }
+
+  function normalizeQueueEntry(entry) {
+    const source = entry && typeof entry === "object"
+      ? entry
+      : { resolvedPrompt: String(entry || "") };
+    const createdAt = source.createdAt || nowIso();
+    const allowedStatuses = ["pending", "running", "done", "failed", "skipped"];
+    return {
+      id: source.id || createEntityId("queue"),
+      templateId: source.templateId || null,
+      resolvedPrompt:
+        typeof source.resolvedPrompt === "string"
+          ? source.resolvedPrompt
+          : String(source.resolvedPrompt || ""),
+      negativePrompt:
+        typeof source.negativePrompt === "string" ? source.negativePrompt : null,
+      model:
+        typeof source.model === "string"
+          ? source.model
+          : modelKeyToSchemaValue(state.settings.currentModel),
+      status: allowedStatuses.includes(source.status) ? source.status : "pending",
+      createdAt,
+      startedAt: source.startedAt || null,
+      completedAt: source.completedAt || null,
+      error: source.error || null,
+    };
+  }
+
+  function createQueueEntry(resolvedPrompt, template = null) {
+    const linkedNegativeId = template ? getTemplateLinkedNegativeId(template) : null;
+    const negativeTemplate = linkedNegativeId ? findNegativeTemplateById(linkedNegativeId) : null;
+    return normalizeQueueEntry({
+      resolvedPrompt,
+      templateId: template?.id || null,
+      negativePrompt: negativeTemplate?.content || null,
+      model: modelKeyToSchemaValue(state.settings.currentModel),
+      status: "pending",
+    });
+  }
+
+  function ensureQueueEntriesAligned() {
+    if (!Array.isArray(state.queueEntries)) {
+      state.queueEntries = [];
+    }
+    if (state.queueEntries.length === state.queue.length) return;
+    state.queueEntries = state.queue.map((prompt, index) => {
+      const existing = state.queueEntries[index];
+      if (existing && existing.resolvedPrompt === prompt) {
+        return normalizeQueueEntry(existing);
+      }
+      return createQueueEntry(prompt);
+    });
+  }
+
+  function enqueuePrompts(prompts, template = null) {
+    prompts.forEach((prompt) => {
+      state.queue.push(prompt);
+      state.queueEntries.push(createQueueEntry(prompt, template));
+    });
+  }
+
+  function removeQueueEntryAt(index) {
+    state.queue.splice(index, 1);
+    state.queueEntries.splice(index, 1);
+    state.failedQueueItems = state.failedQueueItems
+      .filter((itemIndex) => itemIndex !== index)
+      .map((itemIndex) => (itemIndex > index ? itemIndex - 1 : itemIndex));
+  }
+
+  function createEmptySessionDocument() {
+    return {
+      schemaVersion: 4,
+      updatedAt: nowIso(),
+      lastUsedTemplateId: null,
+      queue: {
+        items: [],
+        running: false,
+        currentIndex: 0,
+      },
+    };
+  }
+
+  function buildSessionDocumentFromLegacyQueueState(legacyQueueState = null) {
+    if (!legacyQueueState || !Array.isArray(legacyQueueState.queue)) {
+      return createEmptySessionDocument();
+    }
+
+    const updatedAt = Number.isFinite(legacyQueueState.savedAt)
+      ? new Date(legacyQueueState.savedAt).toISOString()
+      : nowIso();
+    const currentIndex = Number.isFinite(legacyQueueState.currentQueueIndex)
+      ? legacyQueueState.currentQueueIndex
+      : 0;
+    const failedItems = Array.isArray(legacyQueueState.failedQueueItems)
+      ? legacyQueueState.failedQueueItems
+      : [];
+    const items = legacyQueueState.queue.map((prompt, index) => {
+      const status = failedItems.includes(index)
+        ? "failed"
+        : index < currentIndex
+          ? "done"
+          : "pending";
+      return normalizeQueueEntry({
+        resolvedPrompt: prompt,
+        model: modelKeyToSchemaValue(state.settings.currentModel),
+        status,
+        createdAt: updatedAt,
+        startedAt: status === "pending" ? null : updatedAt,
+        completedAt: status === "pending" ? null : updatedAt,
+        error: status === "failed" ? "generation-failed" : null,
+      });
+    });
+
+    return {
+      schemaVersion: 4,
+      updatedAt,
+      lastUsedTemplateId: null,
+      queue: {
+        items,
+        running: false,
+        currentIndex,
+      },
+    };
+  }
+
+  function buildSessionDocument() {
+    ensureQueueEntriesAligned();
+    const selectedTemplate =
+      state.selectedTemplates.length > 0
+        ? state.templates[state.selectedTemplates[0]]
+        : null;
+    return {
+      schemaVersion: 4,
+      updatedAt: nowIso(),
+      lastUsedTemplateId: selectedTemplate?.id || null,
+      queue: {
+        items: state.queueEntries.map((entry) => normalizeQueueEntry(entry)),
+        running: state.isQueueRunning && !state.isQueuePaused,
+        currentIndex: state.currentQueueIndex,
+      },
+    };
+  }
+
+  function buildQueueResumeSnapshotFromSession(sessionDoc) {
+    if (!isV4SessionDocument(sessionDoc)) return null;
+    const items = Array.isArray(sessionDoc.queue?.items)
+      ? sessionDoc.queue.items.map((item) => normalizeQueueEntry(item))
+      : [];
+    if (items.length === 0) return null;
+    const currentIndex = Number.isFinite(sessionDoc.queue?.currentIndex)
+      ? Math.max(0, Math.min(sessionDoc.queue.currentIndex, items.length))
+      : 0;
+    return {
+      queue: items.map((item) => item.resolvedPrompt),
+      queueEntries: items,
+      currentQueueIndex: currentIndex,
+      failedQueueItems: items.reduce((list, item, index) => {
+        if (item.status === "failed") list.push(index);
+        return list;
+      }, []),
+      savedAt: getTimestampValue(sessionDoc.updatedAt) || Date.now(),
+    };
+  }
+
   // ============================================
   // NOVELAI INTERACTION
   // ============================================
@@ -1528,7 +2550,42 @@
       const editors = document.querySelectorAll(
         '.ProseMirror[contenteditable="true"]',
       );
-      return editors[1] || null;
+      // Separate layout: two editors visible simultaneously
+      if (editors.length >= 2) return editors[1];
+      // Combined/tabs layout: find by label proximity ("Undesired Content")
+      return this._findEditorNearLabel(["Undesired Content", "Negative Prompt"]);
+    },
+
+    // Find a ProseMirror editor that lives inside a section labeled with one of the given labels
+    _findEditorNearLabel(labels) {
+      const candidates = document.querySelectorAll("span, label");
+      for (const el of candidates) {
+        if (el.childElementCount > 0) continue;
+        if (!labels.includes(el.textContent.trim())) continue;
+        let container = el.parentElement;
+        for (let depth = 0; depth < 8; depth++) {
+          if (!container) break;
+          const ed = container.querySelector('.ProseMirror[contenteditable="true"]');
+          if (ed) return ed;
+          container = container.parentElement;
+        }
+      }
+      return null;
+    },
+
+    // Find NAI's own tab button for the prompt area (positive or negative)
+    _findNAIPromptTab(type) {
+      const labels = type === "negative"
+        ? ["Undesired Content", "Negative Prompt", "Negative"]
+        : ["Prompt", "Description", "Positive Prompt", "Positive"];
+      const tabs = document.querySelectorAll('[role="tab"]');
+      for (const tab of tabs) {
+        const t = tab.textContent.trim();
+        if (labels.includes(t) || labels.some((l) => t.includes(l) && t.length < l.length + 12)) {
+          return tab;
+        }
+      }
+      return null;
     },
 
     getGenerateButton() {
@@ -1619,7 +2676,20 @@
     },
 
     setNegativePrompt(text) {
-      const editor = this.getNegativePromptEditor();
+      const editors = document.querySelectorAll('.ProseMirror[contenteditable="true"]');
+      let editor = editors[1] || null;
+      let needsTabRestore = false;
+
+      if (!editor) {
+        // Combined/tabs layout: switch NAI's negative prompt tab
+        const negTab = this._findNAIPromptTab("negative");
+        if (negTab) {
+          negTab.click();
+          needsTabRestore = true;
+        }
+        editor = document.querySelectorAll('.ProseMirror[contenteditable="true"]')[0] || null;
+      }
+
       if (!editor) {
         console.warn("NAI Ext: Could not find negative prompt editor");
         return false;
@@ -1632,6 +2702,13 @@
 
       editor.dispatchEvent(new Event("input", { bubbles: true }));
       editor.dispatchEvent(new Event("change", { bubbles: true }));
+
+      if (needsTabRestore) {
+        setTimeout(() => {
+          const posTab = this._findNAIPromptTab("positive");
+          if (posTab) posTab.click();
+        }, 250);
+      }
 
       return true;
     },
@@ -1723,6 +2800,68 @@
       }
 
       return false;
+    },
+
+    // Auto-detect Anlas-relevant factors from NAI's live DOM
+    detectAnlasFactors() {
+      const result = { vibeCount: null, preciseRefCount: null, opusPlan: null, isFree: null };
+
+      // Helper: count image thumbnails near a section labeled with one of the given strings
+      const countImagesNearLabel = (labels) => {
+        const candidates = document.querySelectorAll("span, div[class], label");
+        for (const el of candidates) {
+          if (el.childElementCount !== 0) continue;
+          if (!labels.includes(el.textContent.trim())) continue;
+          let container = el.parentElement;
+          for (let i = 0; i < 6; i++) {
+            if (!container) break;
+            const imgs = container.querySelectorAll(
+              'img[src]:not([src=""]), [class*="thumbnail"], [class*="preview-img"], [class*="reference-img"]'
+            );
+            if (imgs.length > 0) return imgs.length;
+            container = container.parentElement;
+          }
+          return 0;
+        }
+        return null;
+      };
+
+      // --- Vibe Transfer count ---
+      result.vibeCount = countImagesNearLabel(["Vibe Transfer"]) ?? 0;
+
+      // --- Precise Reference count ---
+      result.preciseRefCount = countImagesNearLabel(["Reference Image", "Precise Reference", "Reference Images"]) ?? 0;
+
+      // --- Opus plan ---
+      try {
+        const planEls = document.querySelectorAll(
+          '[class*="plan"], [class*="tier"], [class*="badge"], [class*="subscription"], header, nav'
+        );
+        for (const el of planEls) {
+          if (el.textContent.includes("Opus")) { result.opusPlan = true; break; }
+        }
+        if (result.opusPlan === null) result.opusPlan = false;
+      } catch (e) { result.opusPlan = false; }
+
+      // --- Free generation detection (NAI's own cost indicator) ---
+      try {
+        const genBtn = this.getGenerateButton();
+        if (genBtn) {
+          let container = genBtn.parentElement;
+          for (let i = 0; i < 4 && container; i++) {
+            const costEls = container.querySelectorAll('[class*="anlas"], [class*="cost"]');
+            for (const el of costEls) {
+              const t = el.textContent.trim();
+              if (t === "0" || t.toLowerCase() === "free") { result.isFree = true; break; }
+            }
+            if (result.isFree) break;
+            container = container.parentElement;
+          }
+        }
+        if (result.isFree === null) result.isFree = false;
+      } catch (e) { result.isFree = false; }
+
+      return result;
     },
   };
 
@@ -2013,7 +3152,7 @@
                 <div class="nai-ext-title">
                     <span class="nai-ext-title-icon">🎨</span>
                     <span>Ekphrasis</span>
-                    <span style="font-size:10px;background:#16a34a;padding:2px 5px;border-radius:2px;text-transform:none;letter-spacing:0;">v3</span>
+                    <span style="font-size:10px;background:#16a34a;padding:2px 5px;border-radius:2px;text-transform:none;letter-spacing:0;">v4</span>
                 </div>
                 <div class="nai-ext-controls">
                     <button class="nai-ext-btn-icon" id="nai-ext-help" title="Help / Guide">?</button>
@@ -2029,7 +3168,7 @@
                     <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">📋 Batch Raw Import</span>
                     <button class="nai-ext-help-close" id="nai-ext-batch-close">× Close</button>
                 </div>
-                <div class="nai-ext-batch-hint">Paste raw prompts below. Separate each prompt with <code style="background:#f0f0f0;padding:1px 4px;border:1px solid #e0e0e0;">---</code> on its own line. Each block = 1 item in queue.</div>
+                <div class="nai-ext-batch-hint">Paste raw prompts below. Separate each prompt with <code style="background:var(--ekp-bg-elevated);padding:1px 4px;border:1px solid var(--ekp-border);border-radius:3px;color:var(--ekp-accent);">---</code> on its own line. Each block = 1 item in queue.</div>
                 <textarea id="nai-ext-batch-textarea" placeholder="a cute fox, masterpiece, very aesthetic&#10;---&#10;wolf in forest, best quality, absurdres&#10;---&#10;dragon, cinematic lighting, detailed"></textarea>
                 <div style="display:flex;align-items:center;justify-content:space-between;">
                     <span class="nai-ext-batch-count" id="nai-ext-batch-count">0 prompts detected</span>
@@ -2184,8 +3323,8 @@
                 <!-- Strip 1: Quick Apply -->
                 <div class="nai-ext-footer-strip" id="nai-ext-apply-strip">
                     <div class="nai-ext-footer-panel" id="nai-ext-apply-panel">
-                    <div id="nai-ext-preview" title="Resolved positive prompt preview" style="font-size:11px;color:#666;font-family:'Consolas','Monaco',monospace;word-break:break-all;background:#f8f8f8;border:1px solid #e0e0e0;padding:6px;max-height:70px;overflow-y:auto;margin-bottom:4px;">Select a template to preview</div>
-                    <div id="nai-ext-preview-negative" title="Linked negative prompt preview" style="display:none;font-size:10px;color:#999;background:#f0f0f0;border:1px solid #e0e0e0;padding:5px;font-family:'Consolas','Monaco',monospace;word-break:break-all;max-height:50px;overflow-y:auto;"></div>
+                    <div id="nai-ext-preview" title="Resolved positive prompt preview">Select a template to preview</div>
+                    <div id="nai-ext-preview-negative" title="Linked negative prompt preview" style="display:none;"></div>
                     </div>
                     <div class="nai-ext-footer-bar" id="nai-ext-apply-bar">
                         <span style="font-size:11px;flex-shrink:0;">⚡</span>
@@ -2254,12 +3393,12 @@
                             <button class="nai-ext-model-btn" data-model="v4_curated">V4 Cur</button>
                             <button class="nai-ext-model-btn" data-model="v3">V3</button>
                         </div>
-                        <div id="nai-ext-quality-tags-preview" style="font-size:10px;font-family:'Consolas',monospace;color:#444;background:#f8f8f8;padding:5px;border:1px solid #e0e0e0;word-break:break-all;margin-bottom:5px;"></div>
+                        <div id="nai-ext-quality-tags-preview" style="font-size:10px;font-family:var(--ekp-font-mono);color:var(--ekp-fg-muted);background:var(--ekp-bg-input);padding:5px;border:1px solid var(--ekp-border);border-radius:3px;word-break:break-all;margin-bottom:5px;"></div>
                         <button class="nai-ext-btn nai-ext-btn-full" id="nai-ext-insert-quality-tags" title="Append quality tags to current NAI prompt">+ Insert Quality Tags</button>
                     </div>
                     <div class="nai-ext-footer-bar" id="nai-ext-quality-bar">
                         <span style="font-size:11px;flex-shrink:0;">🏷️</span>
-                        <span id="nai-ext-quality-model-label" style="font-size:10px;color:#666;flex:1;">V4.5 Full</span>
+                        <span id="nai-ext-quality-model-label" style="font-size:10px;color:var(--ekp-fg-muted);flex:1;">V4.5 Full</span>
                         <span id="nai-ext-token-count" class="ok" title="Approximate T5 token count of current NAI prompt (~512 limit for V4+)">~0/512</span>
                         <button class="nai-ext-footer-toggle" id="nai-ext-quality-toggle" title="Quality tags &amp; token counter"></button>
                     </div>
@@ -2297,11 +3436,11 @@
                         </div>
 
                         <!-- Cost breakdown -->
-                        <div id="nai-ext-anlas-breakdown" style="font-size:10px;color:#888;margin-top:6px;padding-top:5px;border-top:1px solid #e0e0e0;font-family:'Consolas',monospace;line-height:1.7;"></div>
+                        <div id="nai-ext-anlas-breakdown" style="font-size:10px;color:var(--ekp-fg-muted);margin-top:6px;padding-top:5px;border-top:1px solid var(--ekp-border);font-family:var(--ekp-font-mono);line-height:1.7;"></div>
                     </div>
                     <div class="nai-ext-footer-bar" id="nai-ext-anlas-bar">
                         <span style="font-size:11px;flex-shrink:0;">💎</span>
-                        <span style="font-size:10px;color:#666;flex:1;" id="nai-ext-anlas-bar-label">Anlas / image</span>
+                        <span style="font-size:10px;color:var(--ekp-fg-muted);flex:1;" id="nai-ext-anlas-bar-label">Anlas / image</span>
                         <span id="nai-ext-anlas-cost" class="free" title="Estimated Anlas cost per generation">0 Anlas</span>
                         <button class="nai-ext-footer-toggle" id="nai-ext-anlas-toggle" title="Anlas cost calculator"></button>
                     </div>
@@ -2356,16 +3495,21 @@
           alert("Category already exists.");
           return;
         }
+        const oldMeta = ensureCategoryMeta(oldName);
         const idx = state.categories.indexOf(oldName);
         if (idx >= 0) state.categories[idx] = trimmed;
+        state.categoryMeta[trimmed] = { ...oldMeta, label: trimmed };
+        delete state.categoryMeta[oldName];
         state.templates.forEach((t) => {
-          if (typeof t === "object" && t.category === oldName)
+          if (typeof t === "object" && t.category === oldName) {
             t.category = trimmed;
+            t.categoryId = state.categoryMeta[trimmed].id;
+            t.updatedAt = nowIso();
+          }
         });
         if (state.currentCategoryFilter === oldName)
           state.currentCategoryFilter = trimmed;
         saveCategories();
-        saveTemplates();
         renderCategoryTabs();
         renderTemplates();
       });
@@ -2384,14 +3528,19 @@
           )
         )
           return;
+        const generalCategory = ensureCategoryMeta("general");
         state.templates.forEach((t) => {
-          if (typeof t === "object" && t.category === cat) t.category = "general";
+          if (typeof t === "object" && t.category === cat) {
+            t.category = "general";
+            t.categoryId = generalCategory.id;
+            t.updatedAt = nowIso();
+          }
         });
         state.categories = state.categories.filter((c) => c !== cat);
+        delete state.categoryMeta[cat];
         if (state.currentCategoryFilter === cat)
           state.currentCategoryFilter = "all";
         saveCategories();
-        saveTemplates();
         renderCategoryTabs();
         renderTemplates();
       });
@@ -2407,7 +3556,7 @@
           alert("Already exists.");
           return;
         }
-        state.categories.push(trimmed);
+        ensureCategoryMeta(trimmed);
         state.currentCategoryFilter = trimmed;
         saveCategories();
         renderCategoryTabs();
@@ -2439,8 +3588,8 @@
           typeof template === "object" ? template.content : template;
         const name = typeof template === "object" ? template.name : "";
         const category = typeof template === "object" ? template.category : "";
-        const negativeId = typeof template === "object" ? template.negativeId : undefined;
-        const hasValidNeg = negativeId !== undefined && state.negativeTemplates[negativeId] !== undefined;
+        const linkedNegativeId = getTemplateLinkedNegativeId(template);
+        const hasValidNeg = !!(linkedNegativeId && findNegativeTemplateById(linkedNegativeId));
         const catBadge = category
           ? `<span class="nai-ext-template-category">${category}</span>`
           : "";
@@ -2519,13 +3668,13 @@
     const template = state.templates[index];
     const content = typeof template === "object" ? template.content : template;
     const currentName = typeof template === "object" ? template.name || "" : "";
-    const currentNegId = typeof template === "object" ? template.negativeId : undefined;
+    const currentNegId = getTemplateLinkedNegativeId(template);
 
     // Build negative template options
-    const negOptions = state.negativeTemplates.map((nt, i) => {
+    const negOptions = state.negativeTemplates.map((nt) => {
       const label = typeof nt === "object" ? (nt.name || nt.content.substring(0, 30)) : nt.substring(0, 30);
-      const selected = currentNegId === i ? " selected" : "";
-      return `<option value="${i}"${selected}>${escapeHtml(label)}${label.length >= 30 ? "…" : ""}</option>`;
+      const selected = currentNegId === nt.id ? " selected" : "";
+      return `<option value="${nt.id}"${selected}>${escapeHtml(label)}${label.length >= 30 ? "…" : ""}</option>`;
     }).join("");
 
     const modalId = "nai-ext-edit-template-modal";
@@ -2539,24 +3688,24 @@
       z-index:99999;display:flex;align-items:center;justify-content:center;
     `;
     modal.innerHTML = `
-      <div style="background:#fff;border:2px solid #1a1a1a;padding:16px;width:340px;max-width:95vw;font-family:'Segoe UI',sans-serif;font-size:13px;">
-        <div style="font-weight:700;margin-bottom:12px;font-size:14px;">Edit Template</div>
-        <label style="display:block;margin-bottom:4px;font-size:11px;font-weight:600;">Name (optional)</label>
+      <div style="background:var(--ekp-bg-elevated);border:1px solid var(--ekp-border-strong);border-radius:5px;padding:16px;width:340px;max-width:95vw;font-family:var(--ekp-font-mono);font-size:13px;color:var(--ekp-fg-primary);">
+        <div style="font-weight:500;margin-bottom:12px;font-size:14px;color:var(--ekp-fg-primary);">Edit Template</div>
+        <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--ekp-fg-muted);">Name (optional)</label>
         <input id="nai-ext-edit-tpl-name" type="text" value="${escapeHtml(currentName)}" placeholder="Leave empty to show prompt text"
-          style="width:100%;box-sizing:border-box;border:1px solid #ccc;padding:6px 8px;font-size:12px;margin-bottom:10px;">
-        <label style="display:block;margin-bottom:4px;font-size:11px;font-weight:600;">Prompt</label>
+          style="width:100%;box-sizing:border-box;border:1px solid var(--ekp-border);border-radius:3px;background:var(--ekp-bg-input);color:var(--ekp-fg-primary);padding:6px 8px;font-size:12px;margin-bottom:10px;font-family:var(--ekp-font-mono);">
+        <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--ekp-fg-muted);">Prompt</label>
         <textarea id="nai-ext-edit-tpl-content" rows="4"
-          style="width:100%;box-sizing:border-box;border:1px solid #ccc;padding:6px 8px;font-size:12px;resize:vertical;margin-bottom:10px;">${escapeHtml(content)}</textarea>
-        <label style="display:block;margin-bottom:4px;font-size:11px;font-weight:600;">Linked Negative Template</label>
+          style="width:100%;box-sizing:border-box;border:1px solid var(--ekp-border);border-radius:3px;background:var(--ekp-bg-input);color:var(--ekp-fg-primary);padding:6px 8px;font-size:12px;resize:vertical;margin-bottom:10px;font-family:var(--ekp-font-mono);">${escapeHtml(content)}</textarea>
+        <label style="display:block;margin-bottom:4px;font-size:11px;color:var(--ekp-fg-muted);">Linked Negative Template</label>
         <select id="nai-ext-edit-tpl-neg"
-          style="width:100%;box-sizing:border-box;border:1px solid #ccc;padding:6px 8px;font-size:12px;margin-bottom:14px;">
+          style="width:100%;box-sizing:border-box;border:1px solid var(--ekp-border);border-radius:3px;background:var(--ekp-bg-input);color:var(--ekp-fg-primary);padding:6px 8px;font-size:12px;margin-bottom:14px;font-family:var(--ekp-font-mono);">
           <option value=""${currentNegId === undefined ? " selected" : ""}>(none)</option>
           ${negOptions}
         </select>
-        ${state.negativeTemplates.length === 0 ? '<div style="font-size:10px;color:#888;margin-top:-10px;margin-bottom:10px;">No negative templates yet — create some in the Negative tab first.</div>' : ''}
+        ${state.negativeTemplates.length === 0 ? '<div style="font-size:10px;color:var(--ekp-fg-subtle);margin-top:-10px;margin-bottom:10px;">No negative templates yet — create some in the Negative tab first.</div>' : ''}
         <div style="display:flex;gap:8px;justify-content:flex-end;">
-          <button id="nai-ext-edit-tpl-cancel" style="padding:6px 14px;border:1px solid #ccc;background:#fff;cursor:pointer;font-size:12px;">Cancel</button>
-          <button id="nai-ext-edit-tpl-save" style="padding:6px 14px;border:2px solid #1a1a1a;background:#1a1a1a;color:#fff;cursor:pointer;font-size:12px;font-weight:600;">Save</button>
+          <button id="nai-ext-edit-tpl-cancel" style="padding:6px 14px;border:1px solid var(--ekp-border);border-radius:3px;background:var(--ekp-bg-elevated);color:var(--ekp-fg-primary);cursor:pointer;font-size:12px;font-family:var(--ekp-font-mono);">Cancel</button>
+          <button id="nai-ext-edit-tpl-save" style="padding:6px 14px;border:none;border-radius:3px;background:var(--ekp-accent);color:var(--ekp-accent-fg);cursor:pointer;font-size:12px;font-family:var(--ekp-font-mono);">Save</button>
         </div>
       </div>
     `;
@@ -2570,16 +3719,25 @@
       const negSel = document.getElementById("nai-ext-edit-tpl-neg").value;
       if (!newText) return;
 
-      const negId = negSel !== "" ? parseInt(negSel) : undefined;
+      const linkedNegativeId = negSel || null;
 
       if (typeof template === "object") {
         state.templates[index].content = newText;
         state.templates[index].name = newName;
-        state.templates[index].negativeId = negId;
-        if (negId === undefined) delete state.templates[index].negativeId;
+        state.templates[index].updatedAt = nowIso();
+        setTemplateLinkedNegativeId(state.templates[index], linkedNegativeId);
       } else {
-        state.templates[index] = { content: newText, name: newName, category: "general" };
-        if (negId !== undefined) state.templates[index].negativeId = negId;
+        const categoryMeta = ensureCategoryMeta("general");
+        state.templates[index] = normalizeTemplateRecord(
+          {
+            content: newText,
+            name: newName,
+            category: "general",
+            categoryId: categoryMeta.id,
+            linkedNegativeId,
+          },
+          "positive",
+        );
       }
       saveTemplates();
       renderTemplates();
@@ -2602,10 +3760,12 @@
       const text = typeof nt === "object" ? nt.content : nt;
       const name = typeof nt === "object" ? nt.name || "" : "";
       const display = name || text;
-      const sub = name ? `<div style="font-size:10px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(text.substring(0, 50))}${text.length > 50 ? "…" : ""}</div>` : "";
+      const sub = name ? `<div style="font-size:10px;color:var(--ekp-fg-subtle);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(text.substring(0, 50))}${text.length > 50 ? "…" : ""}</div>` : "";
       // Count how many positive templates link to this negative
-      const linkCount = state.templates.filter(t => typeof t === "object" && t.negativeId === i).length;
-      const badge = linkCount > 0 ? `<span title="${linkCount} template(s) linked" style="font-size:10px;background:#1a1a1a;color:#fff;padding:1px 5px;margin-right:4px;">×${linkCount}</span>` : "";
+      const linkCount = state.templates.filter(
+        (t) => typeof t === "object" && getTemplateLinkedNegativeId(t) === nt.id,
+      ).length;
+      const badge = linkCount > 0 ? `<span title="${linkCount} template(s) linked" style="font-size:10px;background:var(--ekp-bg-active);color:var(--ekp-fg-muted);padding:1px 5px;border-radius:9999px;margin-right:4px;">×${linkCount}</span>` : "";
       return `
         <div class="nai-ext-neg-template-item" data-neg-index="${i}">
           <div style="flex:1;overflow:hidden;">
@@ -2633,7 +3793,12 @@
         if (newName === null) return;
         const newText = prompt("Edit negative prompt:", currentText);
         if (newText !== null && newText.trim()) {
-          state.negativeTemplates[i] = { content: newText.trim(), name: newName.trim() };
+          state.negativeTemplates[i] = {
+            ...normalizeTemplateRecord(state.negativeTemplates[i], "negative"),
+            content: newText.trim(),
+            name: newName.trim(),
+            updatedAt: nowIso(),
+          };
           saveNegativeTemplates();
           renderNegativeTemplates();
         }
@@ -2644,28 +3809,39 @@
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         const i = parseInt(btn.dataset.negIndex);
+        const linkedTemplateId = state.negativeTemplates[i]?.id;
         if (!confirm("Delete this negative template?\n\nAll linked positive templates will lose their negative link.")) return;
 
-        // Shift negativeId references in positive templates
         state.templates.forEach((t, ti) => {
           if (typeof t !== "object") return;
-          if (t.negativeId === i) {
-            delete state.templates[ti].negativeId;
-          } else if (t.negativeId !== undefined && t.negativeId > i) {
-            state.templates[ti].negativeId--;
+          if (getTemplateLinkedNegativeId(t) === linkedTemplateId) {
+            setTemplateLinkedNegativeId(state.templates[ti], null);
           }
         });
 
         state.negativeTemplates.splice(i, 1);
         saveNegativeTemplates();
-        saveTemplates();
         renderNegativeTemplates();
+        renderTemplates();
+        updatePreview();
+      });
+    });
+
+    // Click item to apply negative prompt to NAI
+    list.querySelectorAll(".nai-ext-neg-template-item").forEach((item) => {
+      item.style.cursor = "pointer";
+      item.addEventListener("click", (e) => {
+        if (e.target.closest(".nai-ext-template-btn")) return;
+        const i = parseInt(item.dataset.negIndex);
+        const nt = state.negativeTemplates[i];
+        const negText = typeof nt === "object" ? nt.content : nt;
+        if (negText) NovelAI.setNegativePrompt(negText);
       });
     });
   }
 
   function saveNegativeTemplates() {
-    Storage.set(CONFIG.STORAGE_KEY_NEGATIVE_TEMPLATES, state.negativeTemplates);
+    saveLibrary();
   }
 
   function renderPlaceholderTabs() {
@@ -2718,10 +3894,23 @@
         }
         const values = state.placeholders[oldName];
         const selected = state.selectedPlaceholders[oldName];
+        const placeholderRegex = new RegExp(`\\{${escapeRegex(oldName)}\\}`, "gi");
         delete state.placeholders[oldName];
         delete state.selectedPlaceholders[oldName];
         state.placeholders[trimmed] = values;
         state.selectedPlaceholders[trimmed] = selected || [];
+        if (values) {
+          values.shortName = trimmed;
+          values.label = humanizeToken(trimmed);
+          values.updatedAt = nowIso();
+        }
+        state.templates.forEach((template) => {
+          if (typeof template !== "object" || !template.content) return;
+          const nextContent = template.content.replace(placeholderRegex, `{${trimmed}}`);
+          if (nextContent === template.content) return;
+          template.content = nextContent;
+          template.updatedAt = nowIso();
+        });
         if (state.currentPlaceholderTab === oldName)
           state.currentPlaceholderTab = trimmed;
         savePlaceholders();
@@ -2764,6 +3953,7 @@
         ) {
           const key = name.trim().toLowerCase();
           state.placeholders[key] = [];
+          ensurePlaceholderBucket(key);
           state.placeholderRenderLimit[key] =
             CONFIG.PLACEHOLDER_RENDER_PAGE_SIZE;
           state.currentPlaceholderTab = key;
@@ -2936,6 +4126,7 @@
       );
       template.content = template.content.replace(regex, weightedTag);
     }
+    template.updatedAt = nowIso();
 
     saveTemplates();
     updatePreview();
@@ -3058,7 +4249,7 @@
         if (index <= state.currentQueueIndex && state.isQueueRunning) {
           return;
         }
-        state.queue.splice(index, 1);
+        removeQueueEntryAt(index);
         if (index < state.currentQueueIndex) {
           state.currentQueueIndex--;
         }
@@ -3361,10 +4552,8 @@
     const content = typeof template === "object" ? template.content : template;
 
     // Get selected negative template if any
-    const negId = typeof template === "object" ? template.negativeId : undefined;
-    const negTemplate = negId !== undefined && negId >= 0 && negId < state.negativeTemplates.length
-      ? state.negativeTemplates[negId]
-      : null;
+    const linkedNegativeId = getTemplateLinkedNegativeId(template);
+    const negTemplate = linkedNegativeId ? findNegativeTemplateById(linkedNegativeId) : null;
     const negText = negTemplate ? (typeof negTemplate === "object" ? negTemplate.content : negTemplate) : null;
 
     const hasAnySelection = Object.keys(state.selectedPlaceholders).some(
@@ -3442,8 +4631,8 @@
     // Pos+Neg: enabled when there's a selection AND the selected template has a valid negative link
     if (applyBothBtn) {
       const firstTpl = hasTemplates ? state.templates[state.selectedTemplates[0]] : null;
-      const negId = firstTpl && typeof firstTpl === "object" ? firstTpl.negativeId : undefined;
-      const hasValidNeg = negId !== undefined && negId >= 0 && negId < state.negativeTemplates.length;
+      const linkedNegativeId = getTemplateLinkedNegativeId(firstTpl);
+      const hasValidNeg = !!(linkedNegativeId && findNegativeTemplateById(linkedNegativeId));
       applyBothBtn.disabled = !hasAnySelection;
       applyBothBtn.title = hasValidNeg
         ? "Apply positive + linked negative prompt"
@@ -3498,7 +4687,16 @@
       return;
     }
 
+    ensureQueueEntriesAligned();
     const prompt = state.queue[state.currentQueueIndex];
+    const queueEntry = state.queueEntries[state.currentQueueIndex];
+    if (queueEntry) {
+      queueEntry.status = "running";
+      queueEntry.startedAt = queueEntry.startedAt || nowIso();
+      queueEntry.completedAt = null;
+      queueEntry.error = null;
+      saveQueueState();
+    }
 
     updateQueueStatus();
     renderQueue();
@@ -3513,6 +4711,10 @@
     if (!NovelAI.clickGenerate()) {
       state.isQueuePaused = true;
       pauseQueueTiming();
+      if (queueEntry) {
+        queueEntry.status = "pending";
+        queueEntry.startedAt = null;
+      }
       saveQueueState();
       updateQueueStatus();
       updateButtonStates();
@@ -3525,7 +4727,19 @@
       console.warn(
         `NAI Ext: Generation failed for queue item ${state.currentQueueIndex}`,
       );
-      state.failedQueueItems.push(state.currentQueueIndex);
+      if (!state.failedQueueItems.includes(state.currentQueueIndex)) {
+        state.failedQueueItems.push(state.currentQueueIndex);
+      }
+      if (queueEntry) {
+        queueEntry.status = "failed";
+        queueEntry.completedAt = nowIso();
+        queueEntry.error =
+          typeof result.error === "string" ? result.error : "generation-failed";
+      }
+    } else if (queueEntry) {
+      queueEntry.status = "done";
+      queueEntry.completedAt = nowIso();
+      queueEntry.error = null;
     }
 
     await delay(state.settings.delayBetweenGenerations);
@@ -3542,6 +4756,7 @@
 
   function startQueue() {
     if (state.queue.length === 0) return;
+    ensureQueueEntriesAligned();
     if (state.currentQueueIndex >= state.queue.length) {
       state.currentQueueIndex = 0;
     }
@@ -3572,10 +4787,12 @@
 
   function clearQueue() {
     state.queue = [];
+    state.queueEntries = [];
     state.failedQueueItems = [];
     state.currentQueueIndex = 0;
     state.isQueueRunning = false;
     state.isQueuePaused = false;
+    state.savedQueueSnapshot = null;
     resetQueueTiming();
     clearSavedQueueState();
     renderQueue();
@@ -3611,9 +4828,9 @@
 
     const enabled = !!state.settings.freeSafeMode;
     btn.textContent = enabled ? "FREE ON" : "FREE OFF";
-    btn.style.background = enabled ? "#16a34a" : "#ffffff";
-    btn.style.color = enabled ? "#ffffff" : "#1a1a1a";
-    btn.style.borderColor = enabled ? "#16a34a" : "#1a1a1a";
+    btn.style.background = enabled ? "var(--ekp-success)" : "var(--ekp-bg-elevated)";
+    btn.style.color = enabled ? "var(--ekp-accent-fg)" : "var(--ekp-fg-primary)";
+    btn.style.borderColor = enabled ? "var(--ekp-success)" : "var(--ekp-border)";
     btn.title = enabled
       ? "FREE ON: force steps to 28 immediately and before Apply+/Queue runs"
       : "FREE OFF: leave the current steps value unchanged";
@@ -3625,9 +4842,9 @@
 
     const enabled = !!state.settings.randomizerEnabled;
     btn.textContent = enabled ? "RAND ON" : "RAND OFF";
-    btn.style.background = enabled ? "#2563eb" : "#ffffff";
-    btn.style.color = enabled ? "#ffffff" : "#1a1a1a";
-    btn.style.borderColor = enabled ? "#2563eb" : "#1a1a1a";
+    btn.style.background = enabled ? "var(--ekp-info)" : "var(--ekp-bg-elevated)";
+    btn.style.color = enabled ? "var(--ekp-accent-fg)" : "var(--ekp-fg-primary)";
+    btn.style.borderColor = enabled ? "var(--ekp-info)" : "var(--ekp-border)";
     btn.title = enabled
       ? "RAND ON: Apply+ picks one option, Queue expands every variation"
       : "RAND OFF: keep randomizer blocks unchanged in Apply+/Queue";
@@ -3635,8 +4852,22 @@
 
   function retryFailedItems() {
     if (state.failedQueueItems.length === 0) return;
-    const failedPrompts = state.failedQueueItems.map((i) => state.queue[i]);
-    state.queue = failedPrompts;
+    const failedEntries = state.failedQueueItems
+      .map((i) => state.queueEntries[i])
+      .filter(Boolean)
+      .map((entry) =>
+        normalizeQueueEntry({
+          ...entry,
+          id: createEntityId("queue"),
+          status: "pending",
+          createdAt: nowIso(),
+          startedAt: null,
+          completedAt: null,
+          error: null,
+        }),
+      );
+    state.queueEntries = failedEntries;
+    state.queue = failedEntries.map((entry) => entry.resolvedPrompt);
     state.currentQueueIndex = 0;
     state.failedQueueItems = [];
     state.isQueueRunning = false;
@@ -3649,11 +4880,18 @@
   async function retrySingleItem(index) {
     if (state.isQueueRunning) return;
     const prompt = state.queue[index];
+    const queueEntry = state.queueEntries[index];
     if (!prompt) return;
 
     state.failedQueueItems = state.failedQueueItems.filter((i) => i !== index);
     state.currentQueueIndex = index;
     state.isQueueRunning = true;
+    if (queueEntry) {
+      queueEntry.status = "running";
+      queueEntry.startedAt = nowIso();
+      queueEntry.completedAt = null;
+      queueEntry.error = null;
+    }
     resumeQueueTiming(true);
     renderQueue();
     updateButtonStates();
@@ -3666,6 +4904,12 @@
       state.isQueueRunning = false;
       pauseQueueTiming();
       state.failedQueueItems.push(index);
+      if (queueEntry) {
+        queueEntry.status = "failed";
+        queueEntry.completedAt = nowIso();
+        queueEntry.error = "generate-button-not-found";
+      }
+      saveQueueState();
       renderQueue();
       updateButtonStates();
       return;
@@ -3675,12 +4919,23 @@
     if (result.error) {
       console.warn(`NAI Ext: Retry failed for queue item ${index}`);
       state.failedQueueItems.push(index);
+      if (queueEntry) {
+        queueEntry.status = "failed";
+        queueEntry.completedAt = nowIso();
+        queueEntry.error =
+          typeof result.error === "string" ? result.error : "generation-failed";
+      }
+    } else if (queueEntry) {
+      queueEntry.status = "done";
+      queueEntry.completedAt = nowIso();
+      queueEntry.error = null;
     }
 
     recordQueueCycle(Date.now() - cycleStartedAt);
     state.isQueueRunning = false;
     state.currentQueueIndex = state.queue.length;
     completeQueueTimingRun();
+    saveQueueState();
     renderQueue();
     updateQueueStatus();
     updateButtonStates();
@@ -3719,16 +4974,16 @@
                     position: fixed;
                     top: 80px;
                     right: 20px;
-                    padding: 6px 10px;
-                    background: #1a1a1a;
-                    border: 2px solid #1a1a1a;
-                    color: #fff;
+                    padding: 6px 12px;
+                    background: var(--ekp-bg-surface);
+                    border: 1px solid var(--ekp-border);
+                    border-radius: 5px;
+                    color: var(--ekp-accent);
                     font-size: 11px;
-                    font-weight: bold;
-                    letter-spacing: 1px;
+                    font-weight: 500;
                     cursor: pointer;
                     z-index: 10000;
-                    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+                    font-family: "IBM Plex Mono", monospace;
                 `;
         reopenBtn.addEventListener("click", () => {
           panel.style.display = "";
@@ -3802,9 +5057,15 @@
         }
 
         state.templates.push({
-          content: template,
-          name: templateName.trim(),
-          category: category,
+          ...normalizeTemplateRecord(
+            {
+              content: template,
+              name: templateName.trim(),
+              category,
+              categoryId: ensureCategoryMeta(category).id,
+            },
+            "positive",
+          ),
         });
         saveTemplates();
         renderTemplates();
@@ -3831,7 +5092,12 @@
         if (name === null) return;
         const text = prompt("Enter negative prompt text:");
         if (text === null || !text.trim()) return;
-        state.negativeTemplates.push({ content: text.trim(), name: name.trim() });
+        state.negativeTemplates.push(
+          normalizeTemplateRecord(
+            { content: text.trim(), name: name.trim() },
+            "negative",
+          ),
+        );
         saveNegativeTemplates();
         renderNegativeTemplates();
       });
@@ -3935,6 +5201,7 @@
           if (val === undefined) return;
           if (confirm(`Remove "${val}"?`)) {
             state.placeholders[currentType].splice(index, 1);
+            touchPlaceholderBucket(currentType);
             if (state.selectedPlaceholders[currentType]) {
               state.selectedPlaceholders[currentType] =
                 state.selectedPlaceholders[currentType]
@@ -4007,6 +5274,7 @@
         sortedIndices.forEach((index) => {
           state.placeholders[type].splice(index, 1);
         });
+        touchPlaceholderBucket(type);
 
         state.selectedPlaceholders[type] = [];
         savePlaceholders();
@@ -4055,7 +5323,7 @@
           typeof template === "object" ? template.content : template;
 
         const prompts = generatePromptCombinations(content);
-        prompts.forEach((p) => state.queue.push(p));
+        enqueuePrompts(prompts, template);
 
         saveQueueState();
         renderQueue();
@@ -4124,7 +5392,7 @@
           const content =
             typeof template === "object" ? template.content : template;
           const prompts = generatePromptCombinations(content);
-          prompts.forEach((p) => state.queue.push(p));
+          enqueuePrompts(prompts, template);
         });
 
         saveQueueState();
@@ -4247,7 +5515,7 @@
       const raw = document.getElementById("nai-ext-batch-textarea").value;
       const prompts = parseBatchPrompts(raw);
       if (prompts.length === 0) return;
-      prompts.forEach((p) => state.queue.push(p));
+      enqueuePrompts(prompts);
       saveQueueState();
       renderQueue();
       updateButtonStates();
@@ -4330,6 +5598,56 @@
       total += Math.max(1, Math.ceil(w.length / 5));
     }
     return total;
+  }
+
+  function initAnlasAutoDetect() {
+    let debounceTimer = null;
+
+    function scan() {
+      const f = NovelAI.detectAnlasFactors();
+      let changed = false;
+
+      if (f.vibeCount !== null && f.vibeCount !== state.settings.vibeCount) {
+        state.settings.vibeCount = f.vibeCount;
+        changed = true;
+      }
+      if (f.preciseRefCount !== null && f.preciseRefCount !== state.settings.preciseRefCount) {
+        state.settings.preciseRefCount = f.preciseRefCount;
+        changed = true;
+      }
+      if (f.opusPlan !== null && f.opusPlan !== state.settings.opusPlan) {
+        state.settings.opusPlan = f.opusPlan;
+        changed = true;
+      }
+      if (changed) {
+        saveSettings();
+        updateAnlasUI();
+      }
+
+      // Free indicator: visual only (NAI UI shows 0 Anlas)
+      const costEl = document.getElementById("nai-ext-anlas-cost");
+      if (costEl && f.isFree === true) {
+        costEl.classList.add("free");
+        costEl.title = "NAI UI indicates this generation costs 0 Anlas";
+      }
+    }
+
+    // Initial scan after NAI finishes loading
+    setTimeout(scan, 2500);
+
+    // Poll every 4 seconds
+    setInterval(scan, 4000);
+
+    // Also react instantly to DOM changes (user adds/removes reference images)
+    let observer;
+    try {
+      observer = new MutationObserver(() => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(scan, 700);
+      });
+      const root = document.querySelector("main, #app, #root") || document.body;
+      observer.observe(root, { childList: true, subtree: true });
+    } catch (e) { /* fallback: polling only */ }
   }
 
   function initTokenCounter() {
@@ -4475,13 +5793,16 @@
     NovelAI.setPrompt(result);
 
     if (includeNegative) {
-      const negId =
-        typeof template === "object" ? template.negativeId : undefined;
-      if (negId !== undefined && negId >= 0 && negId < state.negativeTemplates.length) {
-        const nt = state.negativeTemplates[negId];
-        const negText = typeof nt === "object" ? nt.content : nt;
-        if (negText) NovelAI.setNegativePrompt(negText);
-      }
+      const linkedNegativeId = getTemplateLinkedNegativeId(template);
+      const negativeTemplate = linkedNegativeId
+        ? findNegativeTemplateById(linkedNegativeId)
+        : null;
+      const negText = negativeTemplate
+        ? (typeof negativeTemplate === "object"
+            ? negativeTemplate.content
+            : negativeTemplate)
+        : null;
+      if (negText) NovelAI.setNegativePrompt(negText);
     }
   }
 
@@ -4535,6 +5856,7 @@
     if (!state.placeholders[type]) {
       state.placeholders[type] = [];
     }
+    ensurePlaceholderBucket(type);
 
     const prefixToggle = document.getElementById("nai-ext-prefix-toggle");
     const usePrefix = prefixToggle?.checked || false;
@@ -4546,6 +5868,7 @@
     }
 
     state.placeholders[type].push(finalValue);
+  touchPlaceholderBucket(type);
     setToUse.add(finalValue);
 
     if (persist) savePlaceholders();
@@ -4556,6 +5879,7 @@
   async function addPlaceholderBatch(rawText) {
     const type = state.currentPlaceholderTab;
     if (!state.placeholders[type]) state.placeholders[type] = [];
+    ensurePlaceholderBucket(type);
 
     const prefixToggle = document.getElementById("nai-ext-prefix-toggle");
     const usePrefix = prefixToggle?.checked || false;
@@ -4576,6 +5900,7 @@
       }
       existingSet.add(finalValue);
       state.placeholders[type].push(finalValue);
+      touchPlaceholderBucket(type);
       addedCount++;
     };
 
@@ -4679,94 +6004,78 @@
   // PERSISTENCE
   // ============================================
   function loadState() {
-    // Try loading v3 data first
-    const templatesV3 = Storage.get(CONFIG.STORAGE_KEY_TEMPLATES, null);
-
-    if (templatesV3) {
-      state.templates = templatesV3;
-      state.placeholders = Storage.get(CONFIG.STORAGE_KEY_PLACEHOLDERS, {
-        artist: [],
-        character: [],
-        style: [],
-      });
-      state.categories = Storage.get(CONFIG.STORAGE_KEY_CATEGORIES, [
-        "general",
-        "portraits",
-        "landscapes",
-      ]);
-      state.negativeTemplates = Storage.get(
-        CONFIG.STORAGE_KEY_NEGATIVE_TEMPLATES,
-        [],
-      );
+    const libraryDoc = Storage.get(CONFIG.STORAGE_KEY_LIBRARY, null);
+    if (isV4LibraryDocument(libraryDoc)) {
+      hydrateLibraryState(libraryDoc);
     } else {
-      // Try migrating from v2
-      const templatesV2 = Storage.get(
-        CONFIG.STORAGE_KEY_LEGACY_TEMPLATES,
-        null,
-      );
-      if (templatesV2) {
-        console.log("NAI Ext: Migrating from v2 data...");
-        state.templates = templatesV2;
-        state.placeholders = Storage.get(CONFIG.STORAGE_KEY_PLACEHOLDERS, {
-          artist: [],
+      const legacyTemplates =
+        Storage.get(CONFIG.STORAGE_KEY_TEMPLATES, null) ||
+        Storage.get(CONFIG.STORAGE_KEY_LEGACY_TEMPLATES, []) ||
+        [];
+      const legacyArtists = Storage.get(CONFIG.STORAGE_KEY_LEGACY_ARTISTS, []) || [];
+      const legacyPlaceholders =
+        Storage.get(CONFIG.STORAGE_KEY_PLACEHOLDERS, null) || {
+          artist: legacyArtists,
           character: [],
           style: [],
-        });
-        state.categories = Storage.get(CONFIG.STORAGE_KEY_CATEGORIES, [
-          "general",
-          "portraits",
-          "landscapes",
-        ]);
-        saveTemplates();
-        savePlaceholders();
-      } else {
-        // Try migrating from v1
-        const legacyTemplates = Storage.get(
-          CONFIG.STORAGE_KEY_LEGACY_TEMPLATES,
-          [],
-        );
-        const legacyArtists = Storage.get(
-          CONFIG.STORAGE_KEY_LEGACY_ARTISTS,
-          [],
-        );
+        };
+      if (!legacyPlaceholders.artist && legacyArtists.length > 0) {
+        legacyPlaceholders.artist = legacyArtists;
+      }
+      const migratedLibraryDoc = buildLibraryDocumentFromParts({
+        templates: legacyTemplates,
+        negativeTemplates: Storage.get(CONFIG.STORAGE_KEY_NEGATIVE_TEMPLATES, []) || [],
+        placeholders: legacyPlaceholders,
+        categories:
+          Storage.get(CONFIG.STORAGE_KEY_CATEGORIES, null) || getDefaultCategoryLabels(),
+      });
+      hydrateLibraryState(migratedLibraryDoc);
+      Storage.set(CONFIG.STORAGE_KEY_LIBRARY, migratedLibraryDoc);
+      Storage.set(CONFIG.STORAGE_KEY_MIGRATED_V4, true);
+    }
 
-        if (legacyTemplates.length > 0 || legacyArtists.length > 0) {
-          console.log("NAI Ext: Migrating from v1 data...");
-          state.templates = legacyTemplates;
-          state.placeholders = {
-            artist: legacyArtists,
-            character: [],
-            style: [],
-          };
-          saveTemplates();
-          savePlaceholders();
-        }
+    const settingsDoc = Storage.get(CONFIG.STORAGE_KEY_SETTINGS_DOC, null);
+    if (isV4SettingsDocument(settingsDoc)) {
+      applySettingsDocument(settingsDoc);
+    } else {
+      const migratedSettingsDoc = buildSettingsDocumentFromLegacySettings(
+        Storage.get(CONFIG.STORAGE_KEY_SETTINGS, {}) || {},
+      );
+      applySettingsDocument(migratedSettingsDoc);
+      Storage.set(CONFIG.STORAGE_KEY_SETTINGS_DOC, migratedSettingsDoc);
+    }
+
+    const sessionDoc = Storage.get(CONFIG.STORAGE_KEY_SESSION, null);
+    const normalizedSessionDoc = isV4SessionDocument(sessionDoc)
+      ? sessionDoc
+      : buildSessionDocumentFromLegacyQueueState(
+          Storage.get(CONFIG.STORAGE_KEY_QUEUE_STATE, null),
+        );
+    if (!isV4SessionDocument(sessionDoc)) {
+      Storage.set(CONFIG.STORAGE_KEY_SESSION, normalizedSessionDoc);
+    }
+
+    state.queue = [];
+    state.queueEntries = [];
+    state.failedQueueItems = [];
+    state.currentQueueIndex = 0;
+    state.isQueueRunning = false;
+    state.isQueuePaused = false;
+    state.savedQueueSnapshot = buildQueueResumeSnapshotFromSession(normalizedSessionDoc);
+    state.lastSessionSavedAt = state.savedQueueSnapshot?.savedAt || 0;
+
+    const lastUsedTemplateId = normalizedSessionDoc.lastUsedTemplateId;
+    if (lastUsedTemplateId) {
+      const selectedIndex = state.templates.findIndex(
+        (template) => template.id === lastUsedTemplateId,
+      );
+      if (selectedIndex >= 0) {
+        state.selectedTemplates = [selectedIndex];
       }
     }
 
-    state.settings = Storage.get(CONFIG.STORAGE_KEY_SETTINGS, {
-      delayBetweenGenerations: 2000,
-      autoStartQueue: false,
-      freeSafeMode: false,
-      randomizerEnabled: CONFIG.RANDOMIZER_DEFAULT_ENABLED,
-    });
-
-    if (typeof state.settings.freeSafeMode !== "boolean") {
-      state.settings.freeSafeMode = false;
-    }
-    if (typeof state.settings.randomizerEnabled !== "boolean") {
-      state.settings.randomizerEnabled = CONFIG.RANDOMIZER_DEFAULT_ENABLED;
-    }
-    if (!state.settings.currentModel || !QUALITY_TAG_PRESETS[state.settings.currentModel]) {
-      state.settings.currentModel = "v45_full";
-    }
-    if (typeof state.settings.opusPlan !== "boolean") state.settings.opusPlan = false;
-    if (typeof state.settings.preciseRefCount !== "number") state.settings.preciseRefCount = 0;
-    if (typeof state.settings.vibeCount !== "number") state.settings.vibeCount = 0;
-
-    if (!state.placeholders.artist) state.placeholders.artist = [];
-    if (!state.placeholders.character) state.placeholders.character = [];
-    if (!state.placeholders.style) state.placeholders.style = [];
+    ensureDefaultPlaceholderBuckets();
+    ensureCategoryMeta("general");
 
     Object.keys(state.placeholders).forEach((type) => {
       if (!state.placeholderRenderLimit[type]) {
@@ -4785,37 +6094,42 @@
     syncFreeSafeSteps();
   }
 
+  function saveLibrary() {
+    Storage.set(CONFIG.STORAGE_KEY_LIBRARY, buildLibraryDocument());
+  }
+
   function saveTemplates() {
-    Storage.set(CONFIG.STORAGE_KEY_TEMPLATES, state.templates);
+    saveLibrary();
   }
 
   function savePlaceholders() {
-    Storage.set(CONFIG.STORAGE_KEY_PLACEHOLDERS, state.placeholders);
+    saveLibrary();
   }
 
   function saveCategories() {
-    Storage.set(CONFIG.STORAGE_KEY_CATEGORIES, state.categories);
+    saveLibrary();
   }
 
   function saveSettings() {
-    Storage.set(CONFIG.STORAGE_KEY_SETTINGS, state.settings);
+    Storage.set(CONFIG.STORAGE_KEY_SETTINGS_DOC, buildSettingsDocument());
   }
 
   function saveQueueState() {
-    if (state.queue.length === 0) {
-      Storage.set(CONFIG.STORAGE_KEY_QUEUE_STATE, null);
-      return;
-    }
-    Storage.set(CONFIG.STORAGE_KEY_QUEUE_STATE, {
-      queue: state.queue,
-      currentQueueIndex: state.currentQueueIndex,
-      failedQueueItems: state.failedQueueItems,
-      savedAt: Date.now(),
-    });
+    const sessionDocument = buildSessionDocument();
+    Storage.set(CONFIG.STORAGE_KEY_SESSION, sessionDocument);
+    state.lastSessionSavedAt = getTimestampValue(sessionDocument.updatedAt);
   }
 
   function clearSavedQueueState() {
-    Storage.set(CONFIG.STORAGE_KEY_QUEUE_STATE, null);
+    const sessionDocument = createEmptySessionDocument();
+    const selectedTemplate =
+      state.selectedTemplates.length > 0
+        ? state.templates[state.selectedTemplates[0]]
+        : null;
+    sessionDocument.lastUsedTemplateId = selectedTemplate?.id || null;
+    Storage.set(CONFIG.STORAGE_KEY_SESSION, sessionDocument);
+    state.savedQueueSnapshot = null;
+    state.lastSessionSavedAt = 0;
   }
 
   function showQueueResumeNotification(savedQueue) {
@@ -4850,11 +6164,15 @@
     setTimeout(updateBodyPadding, 50);
 
     document.getElementById("nai-ext-resume-saved-queue")?.addEventListener("click", () => {
-      state.queue = savedQueue.queue;
+      state.queue = [...savedQueue.queue];
+      state.queueEntries = savedQueue.queueEntries.map((entry) =>
+        normalizeQueueEntry(entry),
+      );
       state.currentQueueIndex = savedQueue.currentQueueIndex;
-      state.failedQueueItems = savedQueue.failedQueueItems || [];
+      state.failedQueueItems = [...(savedQueue.failedQueueItems || [])];
       state.isQueueRunning = false;
       state.isQueuePaused = false;
+      state.savedQueueSnapshot = null;
       banner.remove();
       renderQueue();
       updateQueueStatus();
@@ -4868,23 +6186,15 @@
   }
 
   function exportConfig() {
-    const config = {
-      version: CONFIG.VERSION,
-      exportDate: new Date().toISOString(),
-      templates: state.templates,
-      placeholders: state.placeholders,
-      categories: state.categories,
-      negativeTemplates: state.negativeTemplates,
-      settings: state.settings,
-    };
+    const libraryDocument = buildLibraryDocument();
 
-    const blob = new Blob([JSON.stringify(config, null, 2)], {
+    const blob = new Blob([JSON.stringify(libraryDocument, null, 2)], {
       type: "application/json",
     });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `nai-prompt-config-${new Date().toISOString().split("T")[0]}.json`;
+    a.download = "library.json";
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -4895,9 +6205,41 @@
       try {
         const config = JSON.parse(e.target.result);
 
-        if (!config.templates && !config.placeholders) {
+        if (
+          !config ||
+          typeof config !== "object" ||
+          (!isV4LibraryDocument(config) &&
+            !config.templates &&
+            !config.placeholders &&
+            !config.categories &&
+            !config.negativeTemplates)
+        ) {
           throw new Error("Invalid config file");
         }
+
+        const normalizedLibraryDocument = isV4LibraryDocument(config)
+          ? {
+              schemaVersion: 4,
+              exportedAt: config.exportedAt || nowIso(),
+              exportedBy: config.exportedBy || `ekphrasis-studio/${CONFIG.VERSION}`,
+              templates: Array.isArray(config.templates) ? config.templates : [],
+              placeholders:
+                config.placeholders && typeof config.placeholders === "object"
+                  ? config.placeholders
+                  : {},
+              categories: Array.isArray(config.categories) ? config.categories : [],
+            }
+          : buildLibraryDocumentFromParts({
+              templates: config.templates || [],
+              negativeTemplates: config.negativeTemplates || [],
+              placeholders: config.placeholders || {},
+              categories: config.categories || getDefaultCategoryLabels(),
+            });
+        const importedSettingsDocument = config.settings
+          ? isV4SettingsDocument(config.settings)
+            ? config.settings
+            : buildSettingsDocumentFromLegacySettings(config.settings)
+          : null;
 
         const mergeChoice = confirm(
           "How do you want to import?\n\n" +
@@ -4906,51 +6248,22 @@
         );
 
         if (mergeChoice) {
-          state.templates = config.templates || [];
-          state.placeholders = config.placeholders || {
-            artist: [],
-            character: [],
-            style: [],
-          };
-          state.categories = config.categories || [
-            "general",
-            "portraits",
-            "landscapes",
-          ];
-          state.negativeTemplates = config.negativeTemplates || [];
-          if (config.settings) state.settings = config.settings;
+          hydrateLibraryState(normalizedLibraryDocument);
+          state.selectedTemplates = [];
+          saveLibrary();
+          if (importedSettingsDocument) {
+            applySettingsDocument(importedSettingsDocument);
+            saveSettings();
+          }
         } else {
-          if (config.templates) {
-            config.templates.forEach((t) => {
-              const content = typeof t === "object" ? t.content : t;
-              const exists = state.templates.some(
-                (st) => (typeof st === "object" ? st.content : st) === content,
-              );
-              if (!exists) state.templates.push(t);
-            });
-          }
-          if (config.placeholders) {
-            for (const [type, values] of Object.entries(config.placeholders)) {
-              if (!state.placeholders[type]) state.placeholders[type] = [];
-              values.forEach((v) => {
-                if (!state.placeholders[type].includes(v)) {
-                  state.placeholders[type].push(v);
-                }
-              });
-            }
-          }
-          if (config.categories) {
-            config.categories.forEach((c) => {
-              if (!state.categories.includes(c)) state.categories.push(c);
-            });
-          }
+          const mergedLibraryDocument = mergeLibraryDocuments(
+            buildLibraryDocument(),
+            normalizedLibraryDocument,
+          );
+          hydrateLibraryState(mergedLibraryDocument);
+          state.selectedTemplates = [];
+          saveLibrary();
         }
-
-        saveTemplates();
-        savePlaceholders();
-        saveCategories();
-        saveSettings();
-        saveNegativeTemplates();
 
         renderCategoryTabs();
         renderTemplates();
@@ -4962,7 +6275,7 @@
         updateRandomizerToggleUI();
         syncFreeSafeSteps();
 
-        alert("Configuration imported successfully!");
+        alert("Library imported successfully!");
       } catch (err) {
         alert("Failed to import configuration: " + err.message);
       }
@@ -5033,13 +6346,15 @@
         initTokenCounter();
         updateQualityTagsUI();
         updateAnlasUI();
+        initAnlasAutoDetect();
         setTimeout(updateBodyPadding, 150);
 
-        const savedQueueData = Storage.get(CONFIG.STORAGE_KEY_QUEUE_STATE, null);
-        if (savedQueueData && savedQueueData.queue && savedQueueData.queue.length > 0) {
-          const savedRemaining = savedQueueData.queue.length - savedQueueData.currentQueueIndex;
+        if (state.savedQueueSnapshot && state.savedQueueSnapshot.queue.length > 0) {
+          const savedRemaining =
+            state.savedQueueSnapshot.queue.length -
+            state.savedQueueSnapshot.currentQueueIndex;
           if (savedRemaining > 0) {
-            showQueueResumeNotification(savedQueueData);
+            showQueueResumeNotification(state.savedQueueSnapshot);
           }
         }
 

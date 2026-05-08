@@ -15,8 +15,11 @@
 | v3.6.0 | May 2026 | Negative Template UI — CRUD, linking positive→negative, N badge, index-shift safety |
 | v3.7.0 | May 2026 | T5 Token Counter (realtime badge) + Model-Aware Quality Tags (Strip 4 footer) |
 | v3.8.0 | May 2026 | Anlas Calculator (Strip 5 footer) — Opus toggle, Precise Ref, Vibe Transfer |
+| v3.9.0 | May 2026 | Negative template click-to-apply + Anlas auto-detection from live NAI DOM |
+| v3.9.1 | May 2026 | Brand design system — dark theme tokens, IBM Plex fonts, SVG logos, landing page redesign |
+| v4.0.0 | May 2026 | Schema v4 alignment — unified library/settings/session docs, ID-based linking, direct `library.json` export/import |
 
-All v1–v3 features are complete. See git history for details.
+All v1–v4 shipped features are complete. See git history for details.
 
 ---
 
@@ -27,6 +30,7 @@ All v1–v3 features are complete. See git history for details.
 - [x] **T5 Token Counter** *(v3.7.0)* — live badge `~N/512` di footer, realtime via MutationObserver
 - [x] **Model-Aware Quality Tags** *(v3.7.0)* — Strip 4 footer dengan 5 model preset + Insert button
 - [x] **Estimated Anlas cost calculator** *(v3.8.0)* — Strip 5 footer, Opus toggle, Precise Ref (+5 ea), Vibe Transfer (5th+ +2 ea)
+- [x] **Schema v4 storage alignment** *(v4.0.0)* — `library/settings/session` docs, legacy migration, direct `library.json` export/import
 
 ### Queue Enhancements
 - [ ] Preview combinations before queuing
@@ -93,4 +97,4 @@ All v1–v3 features are complete. See git history for details.
 
 ---
 
-*Last updated: May 2026 (v3.8.0)*
+*Last updated: May 2026 (v4.0.0)*
