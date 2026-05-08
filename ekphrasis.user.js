@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ekphrasis
 // @namespace    ekphrasis
-// @version      3.5.4
+// @version      3.5.5
 // @description  Prompt studio for NovelAI — templates, weights, randomizers, and batch queue
 // @author       adenaufal
 // @match        https://novelai.net/image*
@@ -19,7 +19,7 @@
   // CONFIGURATION
   // ============================================
   const CONFIG = {
-    VERSION: "3.5.4",
+    VERSION: "3.5.5",
     STORAGE_KEY_TEMPLATES: "nai_ext_templates_v3",
     STORAGE_KEY_PLACEHOLDERS: "nai_ext_placeholders",
     STORAGE_KEY_CATEGORIES: "nai_ext_categories",
@@ -1143,6 +1143,14 @@
             color: #1a1a1a;
         }
 
+        .nai-ext-footer-queue-meta {
+          font-size: 9px;
+          color: #666;
+          min-width: 52px;
+          white-space: nowrap;
+          text-align: left;
+        }
+
         .nai-ext-footer-label {
             font-size: 10px;
             font-weight: 600;
@@ -1368,6 +1376,16 @@
     // Multi-character slots
     charSlots: ["base", "char1", "char2"],
     selectedCharSlot: "base",
+  };
+
+  const queueTiming = {
+    startedAt: 0,
+    elapsedRunningMs: 0,
+    lastResumedAt: 0,
+    currentCycleStartedAt: 0,
+    cycleDurations: [],
+    completedRunMs: 0,
+    tickerId: null,
   };
 
   // ============================================
@@ -2060,7 +2078,7 @@
                         <span style="font-size:11px;flex-shrink:0;">⚡</span>
                     <span class="nai-ext-footer-preview-text" id="nai-ext-footer-preview-text" title="Inline preview of the resolved prompt">No template selected</span>
                     <button class="nai-ext-footer-apply-btn" id="nai-ext-apply-prompt" disabled title="Apply the resolved positive prompt to NovelAI">Apply+</button>
-                    <button class="nai-ext-footer-apply-btn secondary" id="nai-ext-apply-both" disabled title="Apply the positive prompt and its linked negative prompt">Both</button>
+                    <button class="nai-ext-footer-apply-btn secondary" id="nai-ext-apply-both" disabled title="Apply the positive prompt and its linked negative prompt">Pos+Neg</button>
                         <button class="nai-ext-footer-toggle" id="nai-ext-apply-toggle" title="Expand preview"></button>
                     </div>
                 </div>
@@ -2085,6 +2103,7 @@
                     <div class="nai-ext-footer-bar" id="nai-ext-queue-bar">
                         <div class="nai-ext-status-dot" id="nai-ext-queue-dot"></div>
                           <span class="nai-ext-footer-queue-counter" id="nai-ext-queue-counter" title="Queue progress">0/0</span>
+                          <span class="nai-ext-footer-queue-meta" id="nai-ext-queue-timing" title="Batch ETA and elapsed time">ETA --</span>
                           <button class="nai-ext-footer-queue-btn" id="nai-ext-start-queue" disabled title="Start queue processing">▶</button>
                           <button class="nai-ext-footer-queue-btn" id="nai-ext-resume-queue" disabled style="display:none;" title="Resume queue processing">▶</button>
                           <button class="nai-ext-footer-queue-btn" id="nai-ext-pause-queue" disabled title="Pause the running queue">⏸</button>
@@ -2740,6 +2759,197 @@
     });
   }
 
+  function formatDurationCompact(ms) {
+    if (!Number.isFinite(ms) || ms <= 0) return "0s";
+
+    const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    if (minutes > 0) {
+      return `${minutes}m ${seconds}s`;
+    }
+    return `${seconds}s`;
+  }
+
+  function resetQueueTiming() {
+    if (queueTiming.tickerId) {
+      clearInterval(queueTiming.tickerId);
+      queueTiming.tickerId = null;
+    }
+
+    queueTiming.startedAt = 0;
+    queueTiming.elapsedRunningMs = 0;
+    queueTiming.lastResumedAt = 0;
+    queueTiming.currentCycleStartedAt = 0;
+    queueTiming.cycleDurations = [];
+    queueTiming.completedRunMs = 0;
+    updateQueueTimingUI();
+  }
+
+  function startQueueTimingTicker() {
+    if (queueTiming.tickerId) return;
+    queueTiming.tickerId = setInterval(() => {
+      updateQueueTimingUI();
+    }, 1000);
+  }
+
+  function stopQueueTimingTicker() {
+    if (!queueTiming.tickerId) return;
+    clearInterval(queueTiming.tickerId);
+    queueTiming.tickerId = null;
+  }
+
+  function resumeQueueTiming(reset = false) {
+    if (reset) {
+      stopQueueTimingTicker();
+      queueTiming.startedAt = 0;
+      queueTiming.elapsedRunningMs = 0;
+      queueTiming.lastResumedAt = 0;
+      queueTiming.currentCycleStartedAt = 0;
+      queueTiming.cycleDurations = [];
+      queueTiming.completedRunMs = 0;
+    }
+
+    if (!queueTiming.startedAt) {
+      queueTiming.startedAt = Date.now();
+    }
+    if (!queueTiming.lastResumedAt) {
+      queueTiming.lastResumedAt = Date.now();
+    }
+
+    queueTiming.completedRunMs = 0;
+    startQueueTimingTicker();
+    updateQueueTimingUI();
+  }
+
+  function pauseQueueTiming() {
+    if (queueTiming.lastResumedAt) {
+      queueTiming.elapsedRunningMs += Date.now() - queueTiming.lastResumedAt;
+      queueTiming.lastResumedAt = 0;
+    }
+    queueTiming.currentCycleStartedAt = 0;
+    stopQueueTimingTicker();
+    updateQueueTimingUI();
+  }
+
+  function completeQueueTimingRun() {
+    if (queueTiming.lastResumedAt) {
+      queueTiming.elapsedRunningMs += Date.now() - queueTiming.lastResumedAt;
+      queueTiming.lastResumedAt = 0;
+    }
+    queueTiming.currentCycleStartedAt = 0;
+    queueTiming.completedRunMs = queueTiming.elapsedRunningMs;
+    stopQueueTimingTicker();
+    updateQueueTimingUI();
+  }
+
+  function beginQueueCycle() {
+    if (!queueTiming.startedAt) {
+      queueTiming.startedAt = Date.now();
+    }
+    if (!queueTiming.lastResumedAt) {
+      queueTiming.lastResumedAt = Date.now();
+    }
+    if (!queueTiming.currentCycleStartedAt) {
+      queueTiming.currentCycleStartedAt = Date.now();
+    }
+
+    startQueueTimingTicker();
+    updateQueueTimingUI();
+    return queueTiming.currentCycleStartedAt;
+  }
+
+  function recordQueueCycle(durationMs) {
+    if (Number.isFinite(durationMs) && durationMs > 0) {
+      queueTiming.cycleDurations.push(durationMs);
+      if (queueTiming.cycleDurations.length > 8) {
+        queueTiming.cycleDurations.shift();
+      }
+    }
+    queueTiming.currentCycleStartedAt = 0;
+    updateQueueTimingUI();
+  }
+
+  function getQueueTimingEstimate(now = Date.now()) {
+    const completed = Math.min(state.currentQueueIndex, state.queue.length);
+    const remaining = Math.max(state.queue.length - completed, 0);
+    const elapsedMs =
+      queueTiming.completedRunMs ||
+      queueTiming.elapsedRunningMs +
+        (queueTiming.lastResumedAt ? now - queueTiming.lastResumedAt : 0);
+
+    let averageCycleMs = null;
+    if (queueTiming.cycleDurations.length > 0) {
+      averageCycleMs =
+        queueTiming.cycleDurations.reduce((sum, ms) => sum + ms, 0) /
+        queueTiming.cycleDurations.length;
+    } else if (state.isQueueRunning && queueTiming.currentCycleStartedAt) {
+      averageCycleMs = Math.max(
+        now - queueTiming.currentCycleStartedAt,
+        state.settings.delayBetweenGenerations + 1000,
+      );
+    }
+
+    const etaMs =
+      remaining > 0 && averageCycleMs !== null
+        ? averageCycleMs * remaining
+        : null;
+
+    return {
+      remaining,
+      elapsedMs,
+      averageCycleMs,
+      etaMs,
+    };
+  }
+
+  function updateQueueTimingUI() {
+    const meta = document.getElementById("nai-ext-queue-timing");
+    if (!meta) return;
+
+    const { remaining, elapsedMs, averageCycleMs, etaMs } = getQueueTimingEstimate();
+
+    if (state.queue.length === 0) {
+      meta.textContent = "ETA --";
+      meta.title = "Queue kosong, belum ada estimasi batch.";
+      return;
+    }
+
+    if (state.isQueuePaused) {
+      meta.textContent = etaMs !== null ? `ETA ${formatDurationCompact(etaMs)}` : "Paused";
+      meta.title = etaMs !== null
+        ? `Queue paused. Elapsed ${formatDurationCompact(elapsedMs)}. Sisa ${remaining} item, estimasi ${formatDurationCompact(etaMs)}.`
+        : `Queue paused. Elapsed ${formatDurationCompact(elapsedMs)}. ETA masih dikalibrasi.`;
+      return;
+    }
+
+    if (state.isQueueRunning) {
+      meta.textContent = etaMs !== null ? `ETA ${formatDurationCompact(etaMs)}` : "ETA ...";
+      meta.title = etaMs !== null
+        ? `Elapsed ${formatDurationCompact(elapsedMs)}. Avg/item ${formatDurationCompact(averageCycleMs)}. Sisa ${remaining} item.`
+        : `Elapsed ${formatDurationCompact(elapsedMs)}. ETA masih dikalibrasi dari item yang sedang berjalan.`;
+      return;
+    }
+
+    if (remaining === 0) {
+      meta.textContent = elapsedMs > 0 ? `Done ${formatDurationCompact(elapsedMs)}` : "Done";
+      meta.title = elapsedMs > 0
+        ? `Batch selesai dalam ${formatDurationCompact(elapsedMs)}.`
+        : "Batch selesai.";
+      return;
+    }
+
+    meta.textContent = etaMs !== null ? `ETA ${formatDurationCompact(etaMs)}` : "ETA --";
+    meta.title = etaMs !== null
+      ? `Queue siap jalan. Sisa ${remaining} item, estimasi ${formatDurationCompact(etaMs)}.`
+      : "Estimasi batch akan muncul setelah item pertama selesai.";
+  }
+
   function updateQueueStatus() {
     const status = document.getElementById("nai-ext-queue-status");
     if (!status) return;
@@ -2779,6 +2989,8 @@
           ? `${text.textContent}. ${done} of ${state.queue.length} queue items processed.`
           : text.textContent;
     }
+
+    updateQueueTimingUI();
   }
 
   function updatePreview() {
@@ -2926,6 +3138,7 @@
     if (!state.isQueueRunning || state.isQueuePaused) return;
     if (state.currentQueueIndex >= state.queue.length) {
       state.isQueueRunning = false;
+      completeQueueTimingRun();
       clearSavedQueueState();
       updateQueueStatus();
       updateButtonStates();
@@ -2937,6 +3150,7 @@
 
     updateQueueStatus();
     renderQueue();
+  const cycleStartedAt = beginQueueCycle();
 
     syncFreeSafeSteps();
 
@@ -2946,6 +3160,7 @@
 
     if (!NovelAI.clickGenerate()) {
       state.isQueuePaused = true;
+      pauseQueueTiming();
       saveQueueState();
       updateQueueStatus();
       updateButtonStates();
@@ -2962,6 +3177,7 @@
     }
 
     await delay(state.settings.delayBetweenGenerations);
+  recordQueueCycle(Date.now() - cycleStartedAt);
 
     state.currentQueueIndex++;
     saveQueueState();
@@ -2977,6 +3193,7 @@
     if (state.currentQueueIndex >= state.queue.length) {
       state.currentQueueIndex = 0;
     }
+    resumeQueueTiming(state.currentQueueIndex === 0);
     state.isQueueRunning = true;
     state.isQueuePaused = false;
     updateQueueStatus();
@@ -2986,6 +3203,7 @@
 
   function pauseQueue() {
     state.isQueuePaused = true;
+    pauseQueueTiming();
     saveQueueState();
     updateQueueStatus();
     updateButtonStates();
@@ -2994,6 +3212,7 @@
   function resumeQueue() {
     if (!state.isQueueRunning) return;
     state.isQueuePaused = false;
+    resumeQueueTiming();
     updateQueueStatus();
     updateButtonStates();
     processQueue();
@@ -3005,6 +3224,7 @@
     state.currentQueueIndex = 0;
     state.isQueueRunning = false;
     state.isQueuePaused = false;
+    resetQueueTiming();
     clearSavedQueueState();
     renderQueue();
     updateQueueStatus();
@@ -3014,6 +3234,7 @@
   function stopQueue() {
     state.isQueueRunning = false;
     state.isQueuePaused = false;
+    resetQueueTiming();
     saveQueueState();
     updateQueueStatus();
     updateButtonStates();
@@ -3081,14 +3302,17 @@
     state.failedQueueItems = state.failedQueueItems.filter((i) => i !== index);
     state.currentQueueIndex = index;
     state.isQueueRunning = true;
+    resumeQueueTiming(true);
     renderQueue();
     updateButtonStates();
+    const cycleStartedAt = beginQueueCycle();
 
     NovelAI.setPrompt(prompt);
     await delay(500);
 
     if (!NovelAI.clickGenerate()) {
       state.isQueueRunning = false;
+      pauseQueueTiming();
       state.failedQueueItems.push(index);
       renderQueue();
       updateButtonStates();
@@ -3101,8 +3325,10 @@
       state.failedQueueItems.push(index);
     }
 
+    recordQueueCycle(Date.now() - cycleStartedAt);
     state.isQueueRunning = false;
     state.currentQueueIndex = state.queue.length;
+    completeQueueTimingRun();
     renderQueue();
     updateQueueStatus();
     updateButtonStates();
