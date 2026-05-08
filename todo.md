@@ -18,16 +18,19 @@
 
 ---
 
-## Step 2: T5 Token Counter + Model-Aware Quality Tags
+## ✅ Step 2: T5 Token Counter + Model-Aware Quality Tags — SELESAI (v3.7.0)
 
-- [ ] Live T5 token count display near prompt textarea (~512 limit)
-- [ ] Model selection change → auto-suggest quality tags per model:
-  - V4.5 Full: `masterpiece, very aesthetic, no text`
-  - V4.5 Curated: `masterpiece, no text, -0.8::feet::, rating:general`
-  - V4 Full: `no text, best quality, very aesthetic, absurdres`
-  - V4 Curated: `amazing quality, very aesthetic, absurdres`
-  - V3: `best quality, amazing quality, very aesthetic, absurdres`
-- [ ] Build UI for existing `STYLE_PRESETS` in code
+| Komponen | Status |
+|---|---|
+| `QUALITY_TAG_PRESETS` constant (5 model presets) | ✅ |
+| `estimateT5Tokens()` — heuristic T5 counter | ✅ |
+| `initTokenCounter()` — MutationObserver on NAI prompt | ✅ |
+| Token count display `~N/512` (green/yellow/red) | ✅ |
+| Strip 4 footer: model selector + quality tags panel | ✅ |
+| 5 model buttons (V4.5 Full/Cur, V4 Full/Cur, V3) | ✅ |
+| "Insert Quality Tags" → append to NAI prompt | ✅ |
+| `state.settings.currentModel` persisted | ✅ |
+| Migration for missing `currentModel` in loadState | ✅ |
 
 ---
 

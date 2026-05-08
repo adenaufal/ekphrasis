@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ekphrasis
 // @namespace    ekphrasis
-// @version      3.6.0
+// @version      3.7.0
 // @description  Prompt studio for NovelAI — templates, weights, randomizers, and batch queue
 // @author       adenaufal
 // @match        https://novelai.net/image*
@@ -19,7 +19,7 @@
   // CONFIGURATION
   // ============================================
   const CONFIG = {
-    VERSION: "3.6.0",
+    VERSION: "3.7.0",
     STORAGE_KEY_TEMPLATES: "nai_ext_templates_v3",
     STORAGE_KEY_PLACEHOLDERS: "nai_ext_placeholders",
     STORAGE_KEY_CATEGORIES: "nai_ext_categories",
@@ -64,6 +64,17 @@
       lineart: "lineart",
       vector_trace: "vector style",
     },
+  };
+
+  // ============================================
+  // QUALITY TAG PRESETS (model-aware)
+  // ============================================
+  const QUALITY_TAG_PRESETS = {
+    v45_full:    { label: "V4.5 Full",  tags: "location, very aesthetic, masterpiece, no text" },
+    v45_curated: { label: "V4.5 Cur",   tags: "location, masterpiece, no text, -0.8::feet::, rating:general" },
+    v4_full:     { label: "V4 Full",    tags: "no text, best quality, very aesthetic, absurdres" },
+    v4_curated:  { label: "V4 Cur",     tags: "rating:general, amazing quality, very aesthetic, absurdres" },
+    v3:          { label: "V3",         tags: "best quality, amazing quality, very aesthetic, absurdres" },
   };
 
   // ============================================
@@ -1186,6 +1197,32 @@
             background: #f0f0f0;
         }
 
+        /* Token Counter */
+        #nai-ext-token-count {
+            font-size: 10px;
+            font-weight: 700;
+            font-family: 'Consolas', 'Monaco', monospace;
+            padding: 1px 5px;
+            border: 1px solid #e0e0e0;
+            white-space: nowrap;
+        }
+        #nai-ext-token-count.ok   { color: #16a34a; border-color: #bbf7d0; }
+        #nai-ext-token-count.warn { color: #d97706; border-color: #fde68a; }
+        #nai-ext-token-count.over { color: #dc2626; border-color: #fca5a5; background: #fee2e2; }
+
+        /* Model selector buttons */
+        .nai-ext-model-btn {
+            font-size: 9px;
+            padding: 2px 5px;
+            background: #f0f0f0;
+            border: 1px solid #d0d0d0;
+            cursor: pointer;
+            font-weight: 500;
+            line-height: 1.4;
+        }
+        .nai-ext-model-btn:hover { background: #e0e0e0; }
+        .nai-ext-model-btn.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+
         /* Body padding-bottom to clear footer — overridden dynamically by JS */
         .nai-ext-body {
             padding-bottom: 100px;
@@ -1368,6 +1405,7 @@
       autoStartQueue: false,
       freeSafeMode: false,
       randomizerEnabled: false,
+      currentModel: "v45_full",
     },
     // Weight syntax state
     weightPresets: {}, // Custom weight presets
@@ -2146,6 +2184,28 @@
                         <button class="nai-ext-footer-icon-btn" id="nai-ext-export" title="Export config">📥</button>
                         <button class="nai-ext-footer-icon-btn" id="nai-ext-import" title="Import config">📤</button>
                         <input type="file" id="nai-ext-import-file" accept=".json" style="display:none;">
+                    </div>
+                </div>
+
+                <!-- Strip 4: Token Counter + Quality Tags -->
+                <div class="nai-ext-footer-strip" id="nai-ext-quality-strip">
+                    <div class="nai-ext-footer-panel" id="nai-ext-quality-panel">
+                        <div style="font-size:10px;color:#666;font-weight:600;margin-bottom:5px;">Model Quality Tags</div>
+                        <div id="nai-ext-model-tabs" style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:6px;">
+                            <button class="nai-ext-model-btn" data-model="v45_full">V4.5 Full</button>
+                            <button class="nai-ext-model-btn" data-model="v45_curated">V4.5 Cur</button>
+                            <button class="nai-ext-model-btn" data-model="v4_full">V4 Full</button>
+                            <button class="nai-ext-model-btn" data-model="v4_curated">V4 Cur</button>
+                            <button class="nai-ext-model-btn" data-model="v3">V3</button>
+                        </div>
+                        <div id="nai-ext-quality-tags-preview" style="font-size:10px;font-family:'Consolas',monospace;color:#444;background:#f8f8f8;padding:5px;border:1px solid #e0e0e0;word-break:break-all;margin-bottom:5px;"></div>
+                        <button class="nai-ext-btn nai-ext-btn-full" id="nai-ext-insert-quality-tags" title="Append quality tags to current NAI prompt">+ Insert Quality Tags</button>
+                    </div>
+                    <div class="nai-ext-footer-bar" id="nai-ext-quality-bar">
+                        <span style="font-size:11px;flex-shrink:0;">🏷️</span>
+                        <span id="nai-ext-quality-model-label" style="font-size:10px;color:#666;flex:1;">V4.5 Full</span>
+                        <span id="nai-ext-token-count" class="ok" title="Approximate T5 token count of current NAI prompt (~512 limit for V4+)">~0/512</span>
+                        <button class="nai-ext-footer-toggle" id="nai-ext-quality-toggle" title="Quality tags &amp; token counter"></button>
                     </div>
                 </div>
 
@@ -4104,6 +4164,24 @@
       document.getElementById("nai-ext-help-modal")?.classList.remove("open");
     });
 
+    // Model selector buttons (quality strip)
+    document.getElementById("nai-ext-model-tabs")?.addEventListener("click", (e) => {
+      const btn = e.target.closest(".nai-ext-model-btn");
+      if (!btn) return;
+      state.settings.currentModel = btn.dataset.model;
+      saveSettings();
+      updateQualityTagsUI();
+    });
+
+    // Insert quality tags button
+    document.getElementById("nai-ext-insert-quality-tags")?.addEventListener("click", () => {
+      const model = state.settings.currentModel || "v45_full";
+      const preset = QUALITY_TAG_PRESETS[model] || QUALITY_TAG_PRESETS.v45_full;
+      const current = NovelAI.getCurrentPrompt();
+      const newPrompt = current ? `${current}, ${preset.tags}` : preset.tags;
+      NovelAI.setPrompt(newPrompt);
+    });
+
     makeDraggable(document.getElementById("nai-ext-panel"));
   }
 
@@ -4111,6 +4189,52 @@
     const currentPrompt = NovelAI.getCurrentPrompt();
     const newPrompt = currentPrompt ? `${currentPrompt}, ${tags}` : tags;
     NovelAI.setPrompt(newPrompt);
+  }
+
+  // Approximate T5 SentencePiece token count (heuristic: ~1 token per 5 chars per word)
+  function estimateT5Tokens(text) {
+    if (!text || !text.trim()) return 0;
+    const words = text.split(/\s+/).filter(Boolean);
+    let total = 0;
+    for (const w of words) {
+      total += Math.max(1, Math.ceil(w.length / 5));
+    }
+    return total;
+  }
+
+  function initTokenCounter() {
+    const editor = NovelAI.getPromptEditor();
+    if (!editor) return;
+
+    function refresh() {
+      const count = estimateT5Tokens((editor.innerText || "").trim());
+      const el = document.getElementById("nai-ext-token-count");
+      if (!el) return;
+      el.textContent = `~${count}/512`;
+      el.className = count > 480 ? "over" : count > 400 ? "warn" : "ok";
+    }
+
+    refresh();
+    new MutationObserver(refresh).observe(editor, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+  }
+
+  function updateQualityTagsUI() {
+    const model = (state.settings.currentModel) || "v45_full";
+    const preset = QUALITY_TAG_PRESETS[model] || QUALITY_TAG_PRESETS.v45_full;
+
+    const label = document.getElementById("nai-ext-quality-model-label");
+    if (label) label.textContent = preset.label;
+
+    const preview = document.getElementById("nai-ext-quality-tags-preview");
+    if (preview) preview.textContent = preset.tags;
+
+    document.querySelectorAll(".nai-ext-model-btn").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.model === model);
+    });
   }
 
   function appendTags(tags) {
@@ -4428,6 +4552,9 @@
     if (typeof state.settings.randomizerEnabled !== "boolean") {
       state.settings.randomizerEnabled = CONFIG.RANDOMIZER_DEFAULT_ENABLED;
     }
+    if (!state.settings.currentModel || !QUALITY_TAG_PRESETS[state.settings.currentModel]) {
+      state.settings.currentModel = "v45_full";
+    }
 
     if (!state.placeholders.artist) state.placeholders.artist = [];
     if (!state.placeholders.character) state.placeholders.character = [];
@@ -4648,7 +4775,7 @@
   }
 
   function setupFooterToggles() {
-    ["nai-ext-apply-bar", "nai-ext-queue-bar"].forEach((barId) => {
+    ["nai-ext-apply-bar", "nai-ext-queue-bar", "nai-ext-quality-bar"].forEach((barId) => {
       document.getElementById(barId)?.addEventListener("click", (e) => {
         if (e.target.closest("button:not(.nai-ext-footer-toggle), input")) return;
         const strip = e.target.closest(".nai-ext-footer-strip");
@@ -4695,6 +4822,8 @@
         updateButtonStates();
         updateQueueStatus();
         setupFooterToggles();
+        initTokenCounter();
+        updateQualityTagsUI();
         setTimeout(updateBodyPadding, 150);
 
         const savedQueueData = Storage.get(CONFIG.STORAGE_KEY_QUEUE_STATE, null);
