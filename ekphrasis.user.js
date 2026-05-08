@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ekphrasis
 // @namespace    ekphrasis
-// @version      3.5.1
+// @version      3.5.2
 // @description  Prompt studio for NovelAI — templates, weights, randomizers, framing presets, and batch queue
 // @author       adenaufal
 // @match        https://novelai.net/image*
@@ -19,7 +19,7 @@
   // CONFIGURATION
   // ============================================
   const CONFIG = {
-    VERSION: "3.5.1",
+    VERSION: "3.5.2",
     STORAGE_KEY_TEMPLATES: "nai_ext_templates_v3",
     STORAGE_KEY_PLACEHOLDERS: "nai_ext_placeholders",
     STORAGE_KEY_CATEGORIES: "nai_ext_categories",
@@ -35,6 +35,7 @@
     PLACEHOLDER_REGEX: /\{(\w+)\}/g,
     BATCH_ADD_YIELD_INTERVAL: 250,
     PLACEHOLDER_RENDER_PAGE_SIZE: 200,
+    FREE_SAFE_MAX_STEPS: 28,
   };
 
   // ============================================
@@ -1410,6 +1411,7 @@
     settings: {
       delayBetweenGenerations: 2000,
       autoStartQueue: false,
+      freeSafeMode: false,
     },
     // Weight syntax state
     weightPresets: {}, // Custom weight presets
@@ -1477,6 +1479,51 @@
         }
       }
       return null;
+    },
+
+    getStepsInput() {
+      const numberInputs = Array.from(document.querySelectorAll('input[type="number"]'));
+      const isStepInput = (el) => {
+        const attrs = [
+          el.getAttribute("aria-label") || "",
+          el.getAttribute("name") || "",
+          el.getAttribute("id") || "",
+          el.getAttribute("placeholder") || "",
+          el.title || "",
+        ]
+          .join(" ")
+          .toLowerCase();
+
+        if (attrs.includes("step")) return true;
+        const containerText = (el.closest("div")?.textContent || "").toLowerCase();
+        return containerText.includes("step");
+      };
+
+      return numberInputs.find(isStepInput) || null;
+    },
+
+    setNumericInputValue(inputEl, value) {
+      if (!inputEl) return false;
+      const next = String(value);
+      if (inputEl.value === next) return true;
+
+      inputEl.value = next;
+      inputEl.dispatchEvent(new Event("input", { bubbles: true }));
+      inputEl.dispatchEvent(new Event("change", { bubbles: true }));
+      return true;
+    },
+
+    enforceFreeSafeSteps(maxSteps = CONFIG.FREE_SAFE_MAX_STEPS) {
+      const input = this.getStepsInput();
+      if (!input) return { ok: false, reason: "steps-input-not-found" };
+
+      const current = parseInt(input.value, 10);
+      if (Number.isFinite(current) && current <= maxSteps) {
+        return { ok: true, changed: false, value: current };
+      }
+
+      this.setNumericInputValue(input, maxSteps);
+      return { ok: true, changed: true, value: maxSteps };
     },
 
     getCurrentPrompt() {
@@ -2094,6 +2141,7 @@
                         <span class="nai-ext-footer-label">Delay</span>
                         <input type="number" class="nai-ext-footer-number-input" id="nai-ext-delay" value="2000" min="500" max="30000" step="500">
                         <span class="nai-ext-footer-label">ms</span>
+                        <button class="nai-ext-footer-icon-btn" id="nai-ext-free-safe-toggle" title="Toggle Free-safe mode (Opus: max 28 steps)">FREE OFF</button>
                         <button class="nai-ext-footer-icon-btn" id="nai-ext-export" title="Export config">📥</button>
                         <button class="nai-ext-footer-icon-btn" id="nai-ext-import" title="Import config">📤</button>
                         <input type="file" id="nai-ext-import-file" accept=".json" style="display:none;">
@@ -2891,6 +2939,13 @@
     updateQueueStatus();
     renderQueue();
 
+    if (state.settings.freeSafeMode) {
+      const preflight = NovelAI.enforceFreeSafeSteps(CONFIG.FREE_SAFE_MAX_STEPS);
+      if (!preflight.ok) {
+        console.warn("NAI Ext: Free-safe mode enabled but steps input was not found.");
+      }
+    }
+
     NovelAI.setPrompt(prompt);
 
     await delay(500);
@@ -2969,6 +3024,17 @@
     updateQueueStatus();
     updateButtonStates();
     renderQueue();
+  }
+
+  function updateFreeSafeToggleUI() {
+    const btn = document.getElementById("nai-ext-free-safe-toggle");
+    if (!btn) return;
+
+    const enabled = !!state.settings.freeSafeMode;
+    btn.textContent = enabled ? "FREE ON" : "FREE OFF";
+    btn.style.background = enabled ? "#16a34a" : "#ffffff";
+    btn.style.color = enabled ? "#ffffff" : "#1a1a1a";
+    btn.style.borderColor = enabled ? "#16a34a" : "#1a1a1a";
   }
 
   function retryFailedItems() {
@@ -3461,6 +3527,14 @@
         saveSettings();
       });
 
+    document
+      .getElementById("nai-ext-free-safe-toggle")
+      ?.addEventListener("click", () => {
+        state.settings.freeSafeMode = !state.settings.freeSafeMode;
+        saveSettings();
+        updateFreeSafeToggleUI();
+      });
+
     // Export button
     document
       .getElementById("nai-ext-export")
@@ -3838,7 +3912,12 @@
     state.settings = Storage.get(CONFIG.STORAGE_KEY_SETTINGS, {
       delayBetweenGenerations: 2000,
       autoStartQueue: false,
+      freeSafeMode: false,
     });
+
+    if (typeof state.settings.freeSafeMode !== "boolean") {
+      state.settings.freeSafeMode = false;
+    }
 
     if (!state.placeholders.artist) state.placeholders.artist = [];
     if (!state.placeholders.character) state.placeholders.character = [];
@@ -3855,6 +3934,8 @@
     if (delayInput) {
       delayInput.value = state.settings.delayBetweenGenerations;
     }
+
+    updateFreeSafeToggleUI();
   }
 
   function saveTemplates() {
@@ -4028,6 +4109,7 @@
         renderPlaceholderTabs();
         renderPlaceholders();
         updateButtonStates();
+        updateFreeSafeToggleUI();
 
         alert("Configuration imported successfully!");
       } catch (err) {
