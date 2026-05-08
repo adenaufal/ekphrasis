@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ekphrasis
 // @namespace    ekphrasis
-// @version      3.3.1
+// @version      3.5.0
 // @description  Prompt studio for NovelAI — templates, weights, randomizers, framing presets, and batch queue
 // @author       adenaufal
 // @match        https://novelai.net/image*
@@ -19,12 +19,13 @@
   // CONFIGURATION
   // ============================================
   const CONFIG = {
-    VERSION: "3.3.1",
+    VERSION: "3.5.0",
     STORAGE_KEY_TEMPLATES: "nai_ext_templates_v3",
     STORAGE_KEY_PLACEHOLDERS: "nai_ext_placeholders",
     STORAGE_KEY_CATEGORIES: "nai_ext_categories",
     STORAGE_KEY_NEGATIVE_TEMPLATES: "nai_ext_negative_templates_v3",
     STORAGE_KEY_SETTINGS: "nai_ext_settings_v3",
+    STORAGE_KEY_QUEUE_STATE: "nai_ext_queue_state",
     STORAGE_KEY_LEGACY_TEMPLATES: "nai_ext_templates_v2",
     STORAGE_KEY_LEGACY_ARTISTS: "nai_ext_artists",
     DEFAULT_DELAY: 2000,
@@ -119,11 +120,11 @@
 
         #nai-ext-panel.minimized #nai-ext-minimize {
             display: none;
+            color: #fff;
         }
 
         #nai-ext-panel.minimized #nai-ext-maximize {
             display: inline-block;
-            color: #fff;
         }
 
         /* Sembunyikan title text saat minimized, tampilkan hanya icon */
@@ -480,6 +481,25 @@
             width: 100%;
         }
 
+        /* Queue Resume Banner */
+        .nai-ext-queue-resume-banner {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 6px;
+            padding: 8px 10px;
+            margin-bottom: 6px;
+            font-size: 11px;
+        }
+        .nai-ext-resume-info {
+            color: #92400e;
+            margin-bottom: 6px;
+            line-height: 1.4;
+        }
+        .nai-ext-resume-actions {
+            display: flex;
+            gap: 4px;
+        }
+
         /* Queue */
         .nai-ext-queue-list {
             display: flex;
@@ -551,6 +571,20 @@
 
         .nai-ext-queue-item.current .nai-ext-queue-remove:hover {
             color: #fca5a5;
+        }
+
+        .nai-ext-queue-retry {
+            background: transparent;
+            border: none;
+            color: #d97706;
+            cursor: pointer;
+            font-size: 12px;
+            padding: 2px;
+            font-weight: bold;
+        }
+
+        .nai-ext-queue-retry:hover {
+            color: #92400e;
         }
 
         /* Progress Bar */
@@ -779,7 +813,7 @@
         }
 
         .nai-ext-tab:hover {
-            background: #e0e0e0;
+            background: #e0f0ff;
         }
 
         .nai-ext-tab.active {
@@ -934,6 +968,8 @@
             background: #f8f8f8;
             border: 1px solid #e0e0e0;
             margin-bottom: 4px;
+            font-size: 11px;
+            cursor: pointer;
         }
 
         .nai-ext-char-label {
@@ -1226,7 +1262,6 @@
             padding: 3px 8px;
             cursor: pointer;
             font-size: 11px;
-            margin-left: 8px;
             font-weight: bold;
         }
 
@@ -2043,6 +2078,7 @@
                         <button class="nai-ext-footer-queue-btn" id="nai-ext-pause-queue" disabled>⏸</button>
                         <button class="nai-ext-footer-queue-btn" id="nai-ext-stop-queue" disabled>⏹</button>
                         <button class="nai-ext-footer-queue-btn" id="nai-ext-clear-queue" disabled>🗑</button>
+                        <button class="nai-ext-footer-queue-btn" id="nai-ext-retry-failed" disabled style="display:none;" title="Retry failed items">↺</button>
                         <button class="nai-ext-footer-queue-btn" id="nai-ext-batch-import" title="Batch raw import">📋</button>
                         <button class="nai-ext-footer-toggle" id="nai-ext-queue-toggle" title="Expand queue"></button>
                     </div>
@@ -2640,6 +2676,7 @@
                 <div class="nai-ext-queue-item ${statusClass}">
                     <span class="nai-ext-queue-status">${statusIcon}</span>
                     <span class="nai-ext-queue-text" title="${escapeHtml(item)}">${escapeHtml(item)}</span>
+                    ${isFailed ? `<button class="nai-ext-queue-retry" data-index="${index}" title="Retry this item">↺</button>` : ""}
                     <button class="nai-ext-queue-remove" data-index="${index}">×</button>
                 </div>
             `;
@@ -2672,8 +2709,16 @@
         if (index < state.currentQueueIndex) {
           state.currentQueueIndex--;
         }
+        saveQueueState();
         renderQueue();
         updateButtonStates();
+      });
+    });
+
+    list.querySelectorAll(".nai-ext-queue-retry").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const index = parseInt(btn.dataset.index);
+        retrySingleItem(index);
       });
     });
   }
@@ -2817,6 +2862,14 @@
     if (stopBtn) stopBtn.disabled = !state.isQueueRunning;
     if (clearBtn) clearBtn.disabled = !hasQueue || state.isQueueRunning;
 
+    const retryFailedBtn = document.getElementById("nai-ext-retry-failed");
+    if (retryFailedBtn) {
+      const hasFailedItems = state.failedQueueItems.length > 0;
+      retryFailedBtn.style.display = hasFailedItems ? "" : "none";
+      retryFailedBtn.disabled = state.isQueueRunning;
+      if (hasFailedItems) retryFailedBtn.title = `Retry ${state.failedQueueItems.length} failed item(s)`;
+    }
+
     const deleteSelectedBtn = document.getElementById(
       "nai-ext-delete-selected",
     );
@@ -2835,6 +2888,7 @@
     if (!state.isQueueRunning || state.isQueuePaused) return;
     if (state.currentQueueIndex >= state.queue.length) {
       state.isQueueRunning = false;
+      clearSavedQueueState();
       updateQueueStatus();
       updateButtonStates();
       renderQueue();
@@ -2852,6 +2906,7 @@
 
     if (!NovelAI.clickGenerate()) {
       state.isQueuePaused = true;
+      saveQueueState();
       updateQueueStatus();
       updateButtonStates();
       return;
@@ -2869,6 +2924,7 @@
     await delay(state.settings.delayBetweenGenerations);
 
     state.currentQueueIndex++;
+    saveQueueState();
     renderQueue();
 
     if (!state.isQueuePaused) {
@@ -2890,6 +2946,7 @@
 
   function pauseQueue() {
     state.isQueuePaused = true;
+    saveQueueState();
     updateQueueStatus();
     updateButtonStates();
   }
@@ -2908,6 +2965,7 @@
     state.currentQueueIndex = 0;
     state.isQueueRunning = false;
     state.isQueuePaused = false;
+    clearSavedQueueState();
     renderQueue();
     updateQueueStatus();
     updateButtonStates();
@@ -2916,9 +2974,58 @@
   function stopQueue() {
     state.isQueueRunning = false;
     state.isQueuePaused = false;
+    saveQueueState();
     updateQueueStatus();
     updateButtonStates();
     renderQueue();
+  }
+
+  function retryFailedItems() {
+    if (state.failedQueueItems.length === 0) return;
+    const failedPrompts = state.failedQueueItems.map((i) => state.queue[i]);
+    state.queue = failedPrompts;
+    state.currentQueueIndex = 0;
+    state.failedQueueItems = [];
+    state.isQueueRunning = false;
+    state.isQueuePaused = false;
+    saveQueueState();
+    renderQueue();
+    startQueue();
+  }
+
+  async function retrySingleItem(index) {
+    if (state.isQueueRunning) return;
+    const prompt = state.queue[index];
+    if (!prompt) return;
+
+    state.failedQueueItems = state.failedQueueItems.filter((i) => i !== index);
+    state.currentQueueIndex = index;
+    state.isQueueRunning = true;
+    renderQueue();
+    updateButtonStates();
+
+    NovelAI.setPrompt(prompt);
+    await delay(500);
+
+    if (!NovelAI.clickGenerate()) {
+      state.isQueueRunning = false;
+      state.failedQueueItems.push(index);
+      renderQueue();
+      updateButtonStates();
+      return;
+    }
+
+    const result = await NovelAI.waitForGenerationComplete();
+    if (result.error) {
+      console.warn(`NAI Ext: Retry failed for queue item ${index}`);
+      state.failedQueueItems.push(index);
+    }
+
+    state.isQueueRunning = false;
+    state.currentQueueIndex = state.queue.length;
+    renderQueue();
+    updateQueueStatus();
+    updateButtonStates();
   }
 
   // ============================================
@@ -2959,7 +3066,7 @@
                     border: 2px solid #1a1a1a;
                     color: #fff;
                     font-size: 11px;
-                    font-weight: 700;
+                    font-weight: bold;
                     letter-spacing: 1px;
                     cursor: pointer;
                     z-index: 10000;
@@ -3112,6 +3219,8 @@
         renderPlaceholders();
         updatePreview();
         updateButtonStates();
+        updateWeightEditor();
+        updateRandomizerPreview();
       });
 
     document
@@ -3198,6 +3307,7 @@
         const prompts = generatePromptCombinations(content);
         prompts.forEach((p) => state.queue.push(p));
 
+        saveQueueState();
         renderQueue();
         updateButtonStates();
       });
@@ -3267,6 +3377,7 @@
           prompts.forEach((p) => state.queue.push(p));
         });
 
+        saveQueueState();
         renderQueue();
         updateButtonStates();
       });
@@ -3287,6 +3398,9 @@
     document
       .getElementById("nai-ext-clear-queue")
       ?.addEventListener("click", clearQueue);
+    document
+      .getElementById("nai-ext-retry-failed")
+      ?.addEventListener("click", retryFailedItems);
 
     // Settings - delay
     document
@@ -3356,6 +3470,7 @@
       const prompts = parseBatchPrompts(raw);
       if (prompts.length === 0) return;
       prompts.forEach((p) => state.queue.push(p));
+      saveQueueState();
       renderQueue();
       updateButtonStates();
       closeBatchModal();
@@ -3644,6 +3759,72 @@
     Storage.set(CONFIG.STORAGE_KEY_SETTINGS, state.settings);
   }
 
+  function saveQueueState() {
+    if (state.queue.length === 0) {
+      Storage.set(CONFIG.STORAGE_KEY_QUEUE_STATE, null);
+      return;
+    }
+    Storage.set(CONFIG.STORAGE_KEY_QUEUE_STATE, {
+      queue: state.queue,
+      currentQueueIndex: state.currentQueueIndex,
+      failedQueueItems: state.failedQueueItems,
+      savedAt: Date.now(),
+    });
+  }
+
+  function clearSavedQueueState() {
+    Storage.set(CONFIG.STORAGE_KEY_QUEUE_STATE, null);
+  }
+
+  function showQueueResumeNotification(savedQueue) {
+    const panel = document.getElementById("nai-ext-queue-panel");
+    if (!panel) return;
+
+    const remaining = savedQueue.queue.length - savedQueue.currentQueueIndex;
+    const completed = savedQueue.currentQueueIndex;
+    const total = savedQueue.queue.length;
+    const timeStr = new Date(savedQueue.savedAt).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    const banner = document.createElement("div");
+    banner.className = "nai-ext-queue-resume-banner";
+    banner.id = "nai-ext-queue-resume-banner";
+    banner.innerHTML = `
+      <div class="nai-ext-resume-info">
+        Queue belum selesai: <strong>${remaining} item tersisa</strong> dari ${total} (${completed} selesai) — tersimpan pukul ${timeStr}
+      </div>
+      <div class="nai-ext-resume-actions">
+        <button class="nai-ext-btn secondary" id="nai-ext-resume-saved-queue" style="font-size:10px;padding:3px 8px;">Resume Queue</button>
+        <button class="nai-ext-btn" id="nai-ext-discard-saved-queue" style="font-size:10px;padding:3px 8px;background:#fee2e2;border-color:#ef4444;color:#b91c1c;">Discard</button>
+      </div>
+    `;
+
+    panel.insertBefore(banner, panel.firstChild);
+
+    const strip = document.getElementById("nai-ext-queue-strip");
+    if (strip) strip.classList.add("open");
+    setTimeout(updateBodyPadding, 50);
+
+    document.getElementById("nai-ext-resume-saved-queue")?.addEventListener("click", () => {
+      state.queue = savedQueue.queue;
+      state.currentQueueIndex = savedQueue.currentQueueIndex;
+      state.failedQueueItems = savedQueue.failedQueueItems || [];
+      state.isQueueRunning = false;
+      state.isQueuePaused = false;
+      banner.remove();
+      renderQueue();
+      updateQueueStatus();
+      updateButtonStates();
+    });
+
+    document.getElementById("nai-ext-discard-saved-queue")?.addEventListener("click", () => {
+      clearSavedQueueState();
+      banner.remove();
+    });
+  }
+
   function exportConfig() {
     const config = {
       version: CONFIG.VERSION,
@@ -3803,6 +3984,14 @@
         updateQueueStatus();
         setupFooterToggles();
         setTimeout(updateBodyPadding, 150);
+
+        const savedQueueData = Storage.get(CONFIG.STORAGE_KEY_QUEUE_STATE, null);
+        if (savedQueueData && savedQueueData.queue && savedQueueData.queue.length > 0) {
+          const savedRemaining = savedQueueData.queue.length - savedQueueData.currentQueueIndex;
+          if (savedRemaining > 0) {
+            showQueueResumeNotification(savedQueueData);
+          }
+        }
 
         console.log(`NAI Prompt Extension v${CONFIG.VERSION}: Ready!`);
       }
