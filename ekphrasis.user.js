@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Ekphrasis
 // @namespace    ekphrasis
-// @version      4.0.2
+// @version      4.1.0
 // @description  Prompt studio for NovelAI — templates, weights, randomizers, and batch queue
 // @author       lemburlab
 // @match        https://novelai.net/image*
@@ -19,7 +19,7 @@
   // CONFIGURATION
   // ============================================
   const CONFIG = {
-    VERSION: "4.0.2",
+    VERSION: "4.1.0",
     STORAGE_KEY_LIBRARY: "ekphrasis.library.v4",
     STORAGE_KEY_SETTINGS_DOC: "ekphrasis.settings.v4",
     STORAGE_KEY_SESSION: "ekphrasis.session.v4",
@@ -1464,12 +1464,30 @@
         }
 
         .nai-ext-footer-queue-meta {
-          font-size: 9px;
-          color: var(--ekp-fg-subtle);
-          min-width: 52px;
-          white-space: nowrap;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          gap: 1px;
+          min-width: 76px;
           text-align: left;
           font-family: var(--ekp-font-mono);
+        }
+        .nai-ext-eta-primary {
+          font-size: 10px;
+          font-weight: 600;
+          color: var(--ekp-fg-primary);
+          white-space: nowrap;
+          line-height: 1.2;
+        }
+        .nai-ext-eta-secondary {
+          font-size: 8.5px;
+          color: var(--ekp-fg-subtle);
+          white-space: nowrap;
+          line-height: 1.2;
+        }
+        .nai-ext-eta-primary.calibrating {
+          color: var(--ekp-fg-muted);
+          font-weight: 400;
         }
 
         .nai-ext-footer-label {
@@ -1911,6 +1929,8 @@
     placeholderRenderLimit: {}, // { artist: 200 }
     currentPlaceholderTab: "artist",
     currentCategoryFilter: "all",
+    // Template search state
+    templateSearchQuery: "",
     // Placeholder search state
     placeholderSearchQuery: "",
     // Queue state
@@ -3550,6 +3570,7 @@
 
                         <!-- Positive templates view -->
                         <div id="nai-ext-positive-view">
+                            <input type="text" class="nai-ext-input" id="nai-ext-template-search" placeholder="Search templates..." style="width:100%;font-size:11px;padding:5px 8px;margin-bottom:5px;box-sizing:border-box;" autocomplete="off">
                             <div class="nai-ext-tabs" id="nai-ext-category-tabs">
                                 <button class="nai-ext-tab active" data-category="all">All</button>
                             </div>
@@ -3895,6 +3916,14 @@
       filtered = state.templates.filter((t) => {
         const cat = typeof t === "object" ? t.category : "general";
         return cat === state.currentCategoryFilter;
+      });
+    }
+    const tSearch = (state.templateSearchQuery || "").toLowerCase();
+    if (tSearch) {
+      filtered = filtered.filter((t) => {
+        const name = (typeof t === "object" ? t.name : "") || "";
+        const content = (typeof t === "object" ? t.content : t) || "";
+        return name.toLowerCase().includes(tSearch) || content.toLowerCase().includes(tSearch);
       });
     }
 
@@ -4762,46 +4791,90 @@
     };
   }
 
+  function setQueueTimingHTML(meta, primaryText, primaryClass, secondaryText, titleText) {
+    const cls = "nai-ext-eta-primary" + (primaryClass ? " " + primaryClass : "");
+    meta.innerHTML =
+      `<span class="${cls}">${primaryText}</span>` +
+      (secondaryText ? `<span class="nai-ext-eta-secondary">${secondaryText}</span>` : "");
+    meta.title = titleText || "";
+  }
+
   function updateQueueTimingUI() {
     const meta = document.getElementById("nai-ext-queue-timing");
     if (!meta) return;
 
-    const { remaining, elapsedMs, averageCycleMs, etaMs } = getQueueTimingEstimate();
+    const now = Date.now();
+    const { remaining, elapsedMs, averageCycleMs, etaMs } = getQueueTimingEstimate(now);
 
     if (state.queue.length === 0) {
-      meta.textContent = "ETA --";
-      meta.title = "Queue kosong, belum ada estimasi batch.";
+      setQueueTimingHTML(meta, "—", "calibrating", null,
+        "Queue kosong, belum ada estimasi batch.");
       return;
     }
 
     if (state.isQueuePaused) {
-      meta.textContent = etaMs !== null ? formatEtaLabelCompact(etaMs) : "Paused";
-      meta.title = etaMs !== null
-        ? `Queue paused. Elapsed ${formatDurationCompact(elapsedMs)}. Sisa ${remaining} item, estimasi ${formatDurationCompact(etaMs)}. Perkiraan selesai ${formatClockTime(Date.now() + etaMs)}.`
-        : `Queue paused. Elapsed ${formatDurationCompact(elapsedMs)}. ETA masih dikalibrasi.`;
+      if (etaMs !== null) {
+        const etaClock = formatClockTime(now + etaMs);
+        setQueueTimingHTML(
+          meta,
+          `⏸ ${etaClock}`,
+          null,
+          `${formatEtaLabelCompact(etaMs)} · ${remaining} sisa`,
+          `Queue paused. Elapsed ${formatDurationCompact(elapsedMs)}. Sisa ${remaining} item, estimasi ${formatDurationCompact(etaMs)}. Perkiraan selesai ${etaClock}.`,
+        );
+      } else {
+        setQueueTimingHTML(meta, "⏸ paused", "calibrating",
+          `elapsed ${formatDurationCompact(elapsedMs)}`,
+          `Queue paused. Elapsed ${formatDurationCompact(elapsedMs)}. ETA masih dikalibrasi.`);
+      }
       return;
     }
 
     if (state.isQueueRunning) {
-      meta.textContent = etaMs !== null ? formatEtaLabelCompact(etaMs) : "ETA ...";
-      meta.title = etaMs !== null
-        ? `Elapsed ${formatDurationCompact(elapsedMs)}. Avg/item ${formatDurationCompact(averageCycleMs)}. Sisa ${remaining} item. Perkiraan selesai ${formatClockTime(Date.now() + etaMs)}.`
-        : `Elapsed ${formatDurationCompact(elapsedMs)}. ETA masih dikalibrasi dari item yang sedang berjalan.`;
+      if (etaMs !== null) {
+        const etaClock = formatClockTime(now + etaMs);
+        const avgLabel = averageCycleMs !== null ? formatDurationCompact(averageCycleMs) + "/item" : null;
+        setQueueTimingHTML(
+          meta,
+          `selesai ~${etaClock}`,
+          null,
+          [formatEtaLabelCompact(etaMs), avgLabel, `${remaining} sisa`].filter(Boolean).join(" · "),
+          `Elapsed ${formatDurationCompact(elapsedMs)}. Avg/item ${averageCycleMs !== null ? formatDurationCompact(averageCycleMs) : "??"}. Sisa ${remaining} item. Perkiraan selesai ${etaClock}.`,
+        );
+      } else {
+        setQueueTimingHTML(meta, "↻ kalibrasi…", "calibrating",
+          `elapsed ${formatDurationCompact(elapsedMs)}`,
+          `Elapsed ${formatDurationCompact(elapsedMs)}. ETA masih dikalibrasi dari item yang sedang berjalan.`);
+      }
       return;
     }
 
     if (remaining === 0) {
-      meta.textContent = elapsedMs > 0 ? `Done ${formatDurationCompact(elapsedMs)}` : "Done";
-      meta.title = elapsedMs > 0
-        ? `Batch selesai dalam ${formatDurationCompact(elapsedMs)}.`
-        : "Batch selesai.";
+      setQueueTimingHTML(
+        meta,
+        `✓ selesai`,
+        null,
+        elapsedMs > 0 ? `total ${formatDurationCompact(elapsedMs)}` : null,
+        elapsedMs > 0 ? `Batch selesai dalam ${formatDurationCompact(elapsedMs)}.` : "Batch selesai.",
+      );
       return;
     }
 
-    meta.textContent = etaMs !== null ? formatEtaLabelCompact(etaMs) : "ETA --";
-    meta.title = etaMs !== null
-      ? `Queue siap jalan. Sisa ${remaining} item, estimasi ${formatDurationCompact(etaMs)}. Perkiraan selesai ${formatClockTime(Date.now() + etaMs)}.`
-      : "Estimasi batch akan muncul setelah item pertama selesai.";
+    // Ready (queue has items, not running)
+    if (etaMs !== null) {
+      const etaClock = formatClockTime(now + etaMs);
+      setQueueTimingHTML(
+        meta,
+        `~${etaClock}`,
+        null,
+        `${formatEtaLabelCompact(etaMs)} · ${remaining} item`,
+        `Queue siap jalan. Sisa ${remaining} item, estimasi ${formatDurationCompact(etaMs)}. Perkiraan selesai ${etaClock}.`,
+      );
+    } else {
+      setQueueTimingHTML(meta, "ready", "calibrating",
+        `${remaining} item`,
+        "Estimasi batch akan muncul setelah item pertama selesai.");
+    }
   }
 
   function updateQueueStatus() {
@@ -5532,6 +5605,14 @@
         }
       });
 
+    // Template search
+    document
+      .getElementById("nai-ext-template-search")
+      ?.addEventListener("input", (e) => {
+        state.templateSearchQuery = e.target.value.trim();
+        renderTemplates();
+      });
+
     // Placeholder search
     document
       .getElementById("nai-ext-placeholder-search")
@@ -5943,17 +6024,47 @@
     });
 
     document.addEventListener("keydown", (e) => {
-      if (e.key !== "Escape") return;
-
-      const helpModal = document.getElementById("nai-ext-help-modal");
-      if (helpModal?.classList.contains("open")) {
-        helpModal.classList.remove("open");
+      // Escape: close modals
+      if (e.key === "Escape") {
+        const helpModal = document.getElementById("nai-ext-help-modal");
+        if (helpModal?.classList.contains("open")) {
+          helpModal.classList.remove("open");
+          return;
+        }
+        const batchModal = document.getElementById("nai-ext-batch-modal");
+        if (batchModal?.classList.contains("open")) {
+          closeBatchModal();
+        }
         return;
       }
 
-      const batchModal = document.getElementById("nai-ext-batch-modal");
-      if (batchModal?.classList.contains("open")) {
-        closeBatchModal();
+      // Skip shortcuts when typing in any input/textarea
+      const tag = document.activeElement?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || document.activeElement?.isContentEditable) return;
+
+      // Ctrl+Enter — start or resume queue
+      if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key === "Enter") {
+        e.preventDefault();
+        if (state.isQueuePaused) {
+          resumeQueue();
+        } else if (!state.isQueueRunning && state.queue.length > 0 && state.currentQueueIndex < state.queue.length) {
+          startQueue();
+        }
+        return;
+      }
+
+      // Ctrl+. — pause queue
+      if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key === ".") {
+        e.preventDefault();
+        if (state.isQueueRunning && !state.isQueuePaused) pauseQueue();
+        return;
+      }
+
+      // Ctrl+Shift+. — stop queue
+      if (e.ctrlKey && e.shiftKey && !e.altKey && e.key === ".") {
+        e.preventDefault();
+        if (state.isQueueRunning) stopQueue();
+        return;
       }
     });
 
